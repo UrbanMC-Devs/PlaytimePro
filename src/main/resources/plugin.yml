@@ -1,0 +1,61 @@
+main: me.elian.playtime.PlaytimePro
+name: PlaytimePro
+version: '1.0'
+author: Elian
+description: Track the amount of time players have played
+api-version: '1.14'
+
+commands:
+  playtime:
+    permission: playtime.playtime
+    aliases: [pt]
+  playtimetop:
+    permission: playtime.top
+    aliases: [pttop]
+  playtimemonthly:
+    permission: playtime.monthly
+    aliases: [ptmonthly, ptm]
+  playtimemonthlytop:
+    permission: playtime.monthlytop
+    aliases: [ptmonthlytop, ptmtop]
+  playtimeweekly:
+    permission: playtime.weekly
+    aliases: [ptweekly, ptw]
+  playtimeweeklytop:
+    permission: playtime.weeklytop
+    aliases: [ptweeklytop, ptwtop]
+  playtimemigrate:
+    permission: playtime.migrate
+    aliases: [ptmigrate]
+  playtimepurge:
+    permission: playtime.purge
+    aliases: [ptpurge]
+  playtimereload:
+    permission: playtime.reload
+    aliases: [ptreload]
+
+permissions:
+  playtime.playtime:
+    default: true
+  playtime.top:
+    default: true
+  playtime.monthly:
+    default: true
+  playtime.monthlytop:
+    default: true
+  playtime.weekly:
+    default: true
+  playtime.weeklytop:
+    default: true
+  playtime.other:
+    default: true
+  playtime.migrate:
+    default: op
+  playtime.purge:
+    default: op
+  playtime.reload:
+    default: op
+  playtime.heads.create:
+    default: op
+  playtime.heads.destroy:
+    default: op

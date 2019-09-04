@@ -1,0 +1,35 @@
+# Playtime #
+############
+
+# Options are sqlite and mysql
+database-type: sqlite
+
+# If using MySQL please update these options to match your database
+mysql-host: 'host'
+mysql-port: 3306
+mysql-database: 'playtime'
+mysql-username: 'user'
+mysql-password: 'pass'
+
+# How many hours must you have to be on the top list
+# Depending on your database size this can help weed out a lot of unnecessary players that slow down
+# the updating process
+top-list-minimum-hours: 5
+
+# For players that haven't logged on since your last world reset, their name is no longer stored on your server and
+# must be fetched using a slow process. This can make the updating process slow depending on your
+# database size and processing power. How many hours must the player have achieved
+# for us to bother fetching their name if we don't have it saved
+top-list-fetch-minimum-hours: 50
+
+# How often should we update the playtime top list? (in seconds)
+# This is an option to help with lag. You can set this to 1 if your server can handle it.
+update-top-list: 120
+
+# How often should we update the sign heads? (in seconds)
+# This is an option to help with lag. You can set this to 1 if your server can handle it.
+update-heads: 120
+
+# How often should we save to the database? (in seconds)
+# This is an option to help with lag. You can set this to 1 if your server can handle it.
+save-database: 120
