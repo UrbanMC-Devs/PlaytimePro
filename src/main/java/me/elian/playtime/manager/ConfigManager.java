@@ -6,6 +6,8 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 
 public class ConfigManager {
 
@@ -31,12 +33,10 @@ public class ConfigManager {
 
         if (!file.exists()) {
             try {
-                file.createNewFile();
 
                 InputStream input = getClass().getClassLoader().getResourceAsStream("config.yml");
-                OutputStream output = new FileOutputStream(file);
 
-                PlaytimePro.copy(input, output);
+                Files.copy(input, file.toPath(), StandardCopyOption.REPLACE_EXISTING); // Use Files.copy
             } catch (IOException e) {
                 Bukkit.getLogger().info("[PlaytimePro] Error creating config.yml");
                 e.printStackTrace();

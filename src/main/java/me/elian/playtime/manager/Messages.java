@@ -5,6 +5,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.text.MessageFormat;
 import java.util.PropertyResourceBundle;
 import java.util.ResourceBundle;
@@ -37,12 +39,9 @@ public class Messages {
 
         if (!FILE.exists()) {
             try {
-                FILE.createNewFile();
-
                 InputStream input = getClass().getClassLoader().getResourceAsStream("messages.properties");
-                OutputStream output = new FileOutputStream(FILE);
 
-                PlaytimePro.copy(input, output);
+                Files.copy(input, FILE.toPath(), StandardCopyOption.REPLACE_EXISTING); // Use file copy method
             } catch (IOException e) {
                 e.printStackTrace();
             }
