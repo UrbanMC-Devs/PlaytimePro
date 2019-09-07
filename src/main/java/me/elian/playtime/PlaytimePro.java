@@ -2,12 +2,11 @@ package me.elian.playtime;
 
 import me.elian.playtime.command.*;
 import me.elian.playtime.listener.HeadListener;
-import me.elian.playtime.listener.LastNameListener;
+import me.elian.playtime.listener.JoinListener;
 import me.elian.playtime.manager.ConfigManager;
 import me.elian.playtime.manager.DataManager;
 import me.elian.playtime.runnable.DatabaseSaver;
 import me.elian.playtime.runnable.HeadUpdater;
-import me.elian.playtime.runnable.LocalTimeUpdater;
 import me.elian.playtime.runnable.TopListUpdater;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.PluginManager;
@@ -20,7 +19,7 @@ import java.io.OutputStream;
 
 public class PlaytimePro extends JavaPlugin {
 
-    private BukkitRunnable localTimeUpdater, topListUpdater, headUpdater, databaseSaver;
+    private BukkitRunnable topListUpdater, headUpdater, databaseSaver;
 
     @Override
     public void onEnable() {
@@ -43,15 +42,12 @@ public class PlaytimePro extends JavaPlugin {
     public void registerRunnables() {
         FileConfiguration config = ConfigManager.getConfig();
 
-        localTimeUpdater = new LocalTimeUpdater();
-        localTimeUpdater.runTaskTimer(this, 0, 20);
-
         int topListTime = config.getInt("update-top-list");
 
         if (topListTime == 0)
             topListTime = 1;
 
-        topListUpdater = new TopListUpdater(this);
+        topListUpdater = new TopListUpdater();
         topListUpdater.runTaskTimerAsynchronously(this, 0, 20 * topListTime);
 
         int headUpdaterTime = config.getInt("update-heads");
@@ -72,10 +68,6 @@ public class PlaytimePro extends JavaPlugin {
     }
 
     public void stopRunnables() {
-        if (localTimeUpdater != null && !localTimeUpdater.isCancelled()) {
-            localTimeUpdater.cancel();
-        }
-
         if (topListUpdater != null && !topListUpdater.isCancelled()) {
             topListUpdater.cancel();
         }
@@ -93,9 +85,10 @@ public class PlaytimePro extends JavaPlugin {
         PluginManager pm = getServer().getPluginManager();
 
         pm.registerEvents(new HeadListener(), this);
-        pm.registerEvents(new LastNameListener(this), this);
+        pm.registerEvents(new JoinListener(this), this);
     }
 
+    @SuppressWarnings ("ConstantConditions")
     private void registerCommands() {
         getCommand("playtime").setExecutor(new Main());
         getCommand("playtimetop").setExecutor(new Top());

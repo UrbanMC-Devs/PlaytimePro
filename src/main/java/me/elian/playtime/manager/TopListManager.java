@@ -40,9 +40,9 @@ public class TopListManager {
         return weeklyTimesConverted;
     }
 
-    public void updateTopList(PlaytimePro plugin) {
+    public void updateTopList() {
         data.saveStorageToDatabase();
-        data.updateLocalStorage(plugin);
+        data.updateLocalStorage();
 
         FileConfiguration config = ConfigManager.getConfig();
 

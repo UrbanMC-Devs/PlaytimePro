@@ -70,8 +70,4 @@ public abstract class Command implements CommandExecutor {
 
         return formattedTime;
     }
-
-    protected int getHours(int seconds) {
-        return seconds / 3600;
-    }
 }

@@ -9,11 +9,11 @@ import org.bukkit.event.player.PlayerJoinEvent;
 
 import java.util.UUID;
 
-public class LastNameListener implements Listener {
+public class JoinListener implements Listener {
 
     private PlaytimePro plugin;
 
-    public LastNameListener(PlaytimePro plugin) {
+    public JoinListener(PlaytimePro plugin) {
         this.plugin = plugin;
     }
 
@@ -23,6 +23,8 @@ public class LastNameListener implements Listener {
 
         UUID id = player.getUniqueId();
         String name = player.getName();
+
+        DataManager.getInstance().playerJoin(id);
 
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin,
                 () -> DataManager.getInstance().setLastName(id, name));
