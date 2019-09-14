@@ -64,13 +64,13 @@ public class TopListManager {
         final List<TopListItem> allTimes, monthlyTimes, weeklyTimes;
 
         allTimes = getTimesSorted(allTimeMap, totalHoursOnServer, minimum);
-        topList = new PaginalList<>(timesConverted, 10);
+        topList = new PaginalList<>(allTimes, 10);
 
         monthlyTimes = getTimesSorted(monthlyMap, totalHoursMonth, 0);
-        monthlyTopList = new PaginalList<>(monthlyTimesConverted, 10);
+        monthlyTopList = new PaginalList<>(monthlyTimes, 10);
 
         weeklyTimes = getTimesSorted(weeklyMap, totalHoursWeek, 0);
-        weeklyTopList = new PaginalList<>(weeklyTimesConverted, 10);
+        weeklyTopList = new PaginalList<>(weeklyTimes, 10);
 
         PlaytimePro.executeSync(() -> {
             timesConverted = allTimes;
