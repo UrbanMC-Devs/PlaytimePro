@@ -40,10 +40,8 @@ public class TopListManager {
         return weeklyTimesConverted;
     }
 
+    // Run Async
     public void updateTopList() {
-        data.asyncSaveStorageToDatabase();
-        data.syncUpdateLocalStorage();
-
         FileConfiguration config = ConfigManager.getConfig();
 
         totalHoursOnServer = new AtomicLong();
@@ -52,34 +50,38 @@ public class TopListManager {
 
         int minimum = config.getInt("top-list-minimum-hours");
 
-        timesConverted = getTimesSorted(TimeType.ALL_TIME, totalHoursOnServer, minimum);
+        final Map<UUID, Integer> allTimeMap = new HashMap<>(), monthlyMap = new HashMap<>(), weeklyMap = new HashMap<>();
+
+        PlaytimePro.waitToExecuteSync(() -> {
+            allTimeMap.putAll(data.getTimesAllTime());
+            monthlyMap.putAll(data.getTimesMonthly());
+            weeklyMap.putAll(data.getTimesWeekly());
+        },200);
+
+        timesConverted = getTimesSorted(allTimeMap, totalHoursOnServer, minimum);
         topList = new PaginalList<>(timesConverted, 10);
 
-        monthlyTimesConverted = getTimesSorted(TimeType.MONTHLY, totalHoursMonth, 0);
+        monthlyTimesConverted = getTimesSorted(monthlyMap, totalHoursMonth, 0);
         monthlyTopList = new PaginalList<>(monthlyTimesConverted, 10);
 
-        weeklyTimesConverted = getTimesSorted(TimeType.WEEKLY, totalHoursWeek, 0);
+        weeklyTimesConverted = getTimesSorted(weeklyMap, totalHoursWeek, 0);
         weeklyTopList = new PaginalList<>(weeklyTimesConverted, 10);
+
+        // Help GC
+        allTimeMap.clear();
+        monthlyMap.clear();
+        weeklyMap.clear();
     }
 
-    private List<TopListItem> getTimesSorted(TimeType type, AtomicLong hoursAdd,
+    private List<TopListItem> getTimesSorted(Map<UUID, Integer> unsortedMap, AtomicLong hoursAdd,
                                              int minimumInclude) {
         int minimumFetch = ConfigManager.getConfig().getInt("top-list-fetch-minimum-hours");
 
         List<TopListItem> converted = new ArrayList<>();
 
-        Map<UUID, Integer> map;
-
-        if (type == TimeType.ALL_TIME)
-            map = data.getTimesAllTime();
-        else if (type == TimeType.MONTHLY)
-            map = data.getTimesMonthly();
-        else
-            map = data.getTimesWeekly();
-
         boolean limit = false;
 
-        for (Map.Entry<UUID, Integer> e : map.entrySet()) {
+        for (Map.Entry<UUID, Integer> e : unsortedMap.entrySet()) {
             int hours = e.getValue() / 3600;
 
             hoursAdd.addAndGet(hours);

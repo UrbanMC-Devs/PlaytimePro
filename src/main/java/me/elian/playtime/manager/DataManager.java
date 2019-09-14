@@ -167,9 +167,7 @@ public class DataManager {
             timesAllMap.putAll(timesAllTime);
             timesMonthlyMap.putAll(timesMonthly);
             timesWeeklyMap.putAll(timesWeekly);
-
         }, 200);
-
 
         database.updateTimes(TimeType.ALL_TIME, playerJoins, timesAllMap);
         database.updateTimes(TimeType.MONTHLY, playerJoins, timesMonthlyMap);
@@ -196,8 +194,10 @@ public class DataManager {
 
     // Called Sync
     public void playerJoin(UUID id) {
-        if (playerJoins.containsKey(id))
+        if (playerJoins.containsKey(id)) {
             playerJoins.get(id).login();
+            return;
+        }
 
         playerJoins.put(id, new OnlineTime());
 

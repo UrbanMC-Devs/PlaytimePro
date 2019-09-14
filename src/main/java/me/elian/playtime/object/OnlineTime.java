@@ -14,13 +14,13 @@ public class OnlineTime {
     }
 
     public void handleLogout() {
-        tempStoredTime += System.currentTimeMillis() - joinTime;
+        tempStoredTime += (System.currentTimeMillis() - joinTime);
     }
 
     public long getUnstoredPlaytime() {
         long tempTime = 0;
 
-        if (joinTime != -1) tempTime += System.currentTimeMillis() - joinTime;
+        if (joinTime != -1) tempTime += (System.currentTimeMillis() - joinTime);
 
         if (tempStoredTime != -1) tempTime += tempStoredTime;
 
