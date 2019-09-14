@@ -5,6 +5,7 @@ import me.elian.playtime.object.PaginalList;
 import me.elian.playtime.object.TimeType;
 import me.elian.playtime.object.TopListItem;
 import me.elian.playtime.util.NameUtil;
+import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import java.util.*;
@@ -42,6 +43,8 @@ public class TopListManager {
 
     // Run Async
     public void updateTopList() {
+        long startTime = System.currentTimeMillis(); // Start timing
+
         FileConfiguration config = ConfigManager.getConfig();
 
         totalHoursOnServer = new AtomicLong();
@@ -58,19 +61,29 @@ public class TopListManager {
             weeklyMap.putAll(data.getTimesWeekly());
         },200);
 
-        timesConverted = getTimesSorted(allTimeMap, totalHoursOnServer, minimum);
+        final List<TopListItem> allTimes, monthlyTimes, weeklyTimes;
+
+        allTimes = getTimesSorted(allTimeMap, totalHoursOnServer, minimum);
         topList = new PaginalList<>(timesConverted, 10);
 
-        monthlyTimesConverted = getTimesSorted(monthlyMap, totalHoursMonth, 0);
+        monthlyTimes = getTimesSorted(monthlyMap, totalHoursMonth, 0);
         monthlyTopList = new PaginalList<>(monthlyTimesConverted, 10);
 
-        weeklyTimesConverted = getTimesSorted(weeklyMap, totalHoursWeek, 0);
+        weeklyTimes = getTimesSorted(weeklyMap, totalHoursWeek, 0);
         weeklyTopList = new PaginalList<>(weeklyTimesConverted, 10);
+
+        PlaytimePro.executeSync(() -> {
+            timesConverted = allTimes;
+            monthlyTimesConverted = monthlyTimes;
+            weeklyTimesConverted = weeklyTimes;
+        });
 
         // Help GC
         allTimeMap.clear();
         monthlyMap.clear();
         weeklyMap.clear();
+
+        Bukkit.getLogger().info("[PlaytimePro] Updating top list took " + (System.currentTimeMillis() - startTime) + "ms to complete!");
     }
 
     private List<TopListItem> getTimesSorted(Map<UUID, Integer> unsortedMap, AtomicLong hoursAdd,

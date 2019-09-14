@@ -158,6 +158,7 @@ public class DataManager {
     }
 
     public void asyncSaveStorageToDatabase() {
+        long startTime = System.currentTimeMillis(); // Save timing
         // Temporary Maps
         final Map<UUID, Integer> timesAllMap = new HashMap<>(), timesMonthlyMap = new HashMap<>(),timesWeeklyMap = new HashMap<>();
 
@@ -180,6 +181,9 @@ public class DataManager {
 
         updatePlayerJoins();
         syncUpdateLocalStorage();
+
+        // Display timing in console
+        Bukkit.getLogger().info("[PlaytimePro] Playtime saving took " + (System.currentTimeMillis() - startTime) + "ms to complete!");
     }
 
     private void updatePlayerJoins() {
