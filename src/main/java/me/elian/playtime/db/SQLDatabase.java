@@ -2,6 +2,7 @@ package me.elian.playtime.db;
 
 import me.elian.playtime.PlaytimePro;
 import me.elian.playtime.manager.DataManager;
+import me.elian.playtime.object.OnlineTime;
 import me.elian.playtime.object.SignHead;
 import me.elian.playtime.object.TimeType;
 
@@ -62,7 +63,7 @@ public abstract class SQLDatabase {
         return times;
     }
 
-    public synchronized void updateTimes(TimeType type, Map<UUID, Long> playerJoins, Map<UUID, Integer> oldTimes) {
+    public synchronized void updateTimes(TimeType type, Map<UUID, OnlineTime> playerJoins, Map<UUID, Integer> oldTimes) {
         String databaseType = this instanceof MySQL ? "mysql" : "sqlite";
 
         if (playerJoins == null || playerJoins.isEmpty())
@@ -81,9 +82,9 @@ public abstract class SQLDatabase {
             if (type == TimeType.ALL_TIME) {
                 statement = con.prepareStatement(SQLMessages.get("prepared_insert_all_time_" + databaseType));
 
-                for (Entry<UUID, Long> entry : playerJoins.entrySet()) {
+                for (Entry<UUID, OnlineTime> entry : playerJoins.entrySet()) {
                     UUID id = entry.getKey();
-                    int seconds = calculateSeconds(playerJoins.getOrDefault(id, 0L)) + oldTimes.getOrDefault(id, 0);
+                    int seconds = calculateSeconds(entry.getValue()) + oldTimes.getOrDefault(id, 0);
 
                     statement.setString(1, id.toString());
                     statement.setInt(2, seconds);
@@ -92,37 +93,27 @@ public abstract class SQLDatabase {
 
                     statement.addBatch();
                 }
-            } else if (type == TimeType.MONTHLY) {
-                statement = con.prepareStatement(SQLMessages.get("prepared_insert_monthly_" + databaseType));
-
-                for (Entry<UUID, Long> entry : playerJoins.entrySet()) {
-                    UUID id = entry.getKey();
-                    int seconds = calculateSeconds(playerJoins.getOrDefault(id, 0L)) + oldTimes.getOrDefault(id, 0);
-                    String monthString = getMonthString();
-
-                    statement.setString(1, id.toString());
-                    statement.setInt(2, seconds);
-                    statement.setString(3, monthString);
-
-                    statement.setInt(4, seconds);
-                    statement.setString(5, monthString);
-
-                    statement.addBatch();
-                }
             } else {
-                statement = con.prepareStatement(SQLMessages.get("prepared_insert_weekly_" + databaseType));
+                final String timeString;
 
-                for (Entry<UUID, Long> entry : playerJoins.entrySet()) {
+                if (type == TimeType.MONTHLY) {
+                    statement = con.prepareStatement(SQLMessages.get("prepared_insert_monthly_" + databaseType));
+                    timeString = getMonthString();
+                } else {
+                    statement = con.prepareStatement(SQLMessages.get("prepared_insert_weekly_" + databaseType));
+                    timeString = getWeekString();
+                }
+
+                for (Entry<UUID, OnlineTime> entry : playerJoins.entrySet()) {
                     UUID id = entry.getKey();
-                    int seconds = calculateSeconds(playerJoins.getOrDefault(id, 0L)) + oldTimes.getOrDefault(id, 0);
-                    String weekString = getWeekString();
+                    int seconds = calculateSeconds(entry.getValue()) + oldTimes.getOrDefault(id, 0);
 
                     statement.setString(1, id.toString());
                     statement.setInt(2, seconds);
-                    statement.setString(3, weekString);
+                    statement.setString(3, timeString);
 
                     statement.setInt(4, seconds);
-                    statement.setString(5, weekString);
+                    statement.setString(5, timeString);
 
                     statement.addBatch();
                 }
@@ -138,14 +129,8 @@ public abstract class SQLDatabase {
         }
     }
 
-    private int calculateSeconds(long joinMillis) {
-        if (joinMillis == 0)
-            return 0;
-
-        long currentTime = System.currentTimeMillis();
-        long playerTime = currentTime - joinMillis;
-
-        return (int) TimeUnit.MILLISECONDS.toSeconds(playerTime);
+    private int calculateSeconds(OnlineTime time) {
+        return (int) TimeUnit.MILLISECONDS.toSeconds(time.getUnstoredPlaytime());
     }
 
     public synchronized void updateTimesMigration(TimeType type, Map<UUID, Integer> times) {
@@ -336,6 +321,8 @@ public abstract class SQLDatabase {
 
                 names.put(id, name);
             }
+
+            statement.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }

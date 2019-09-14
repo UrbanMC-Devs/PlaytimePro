@@ -41,8 +41,8 @@ public class TopListManager {
     }
 
     public void updateTopList() {
-        data.saveStorageToDatabase();
-        data.updateLocalStorage();
+        data.asyncSaveStorageToDatabase();
+        data.syncUpdateLocalStorage();
 
         FileConfiguration config = ConfigManager.getConfig();
 

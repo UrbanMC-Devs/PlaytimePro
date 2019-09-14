@@ -5,6 +5,7 @@ import me.elian.playtime.PlaytimePro;
 import me.elian.playtime.db.MySQL;
 import me.elian.playtime.db.SQLDatabase;
 import me.elian.playtime.db.SQLite;
+import me.elian.playtime.object.OnlineTime;
 import me.elian.playtime.object.SignHead;
 import me.elian.playtime.object.TimeType;
 import me.elian.playtime.util.NameUtil;
@@ -19,7 +20,12 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.AbstractMap.SimpleEntry;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
@@ -37,9 +43,9 @@ public class DataManager {
     /* this map contains players along with the time (millis) that they joined
      * this is used to make calculations, using the old player time, to get the current time the player has
      * this is updated each time the database is saved so that we can remove players who are no longer online
-     * and save some memory without creating an event listener
+     * and save some memory
      */
-    private Map<UUID, Long> playerJoins;
+    private Map<UUID, OnlineTime> playerJoins;
 
     public static DataManager getInstance() {
         return instance;
@@ -50,10 +56,11 @@ public class DataManager {
         timesMonthly = new HashMap<>();
         timesWeekly = new HashMap<>();
 
-        playerJoins = new HashMap<>();
+        playerJoins = new ConcurrentHashMap<>();
     }
 
     /**
+     * Called on the main thread
      * @param plugin PlaytimePro instance
      * @return true if database successfully loaded, false if not successfully loaded
      */
@@ -94,6 +101,7 @@ public class DataManager {
         }
     }
 
+    // Called Sync
     public void updateLocalStorage() {
         try {
             Connection con = database.getConnection();
@@ -109,6 +117,37 @@ public class DataManager {
         }
     }
 
+    // Called Async when migrateOld or when TopListUpdater run
+    // It will fetch the data but then update the timeMaps on the main thread
+    public void syncUpdateLocalStorage() {
+        // Temporary Maps
+        final Map<UUID, Integer> timesAllMap, timesMonthlyMap,timesWeeklyMap;
+
+        try {
+            Connection con = database.getConnection();
+            Statement statement = con.createStatement();
+
+            timesAllMap = database.getTimes(statement, TimeType.ALL_TIME);
+            timesMonthlyMap = database.getTimes(statement, TimeType.MONTHLY);
+            timesWeeklyMap = database.getTimes(statement, TimeType.WEEKLY);
+
+            statement.close();
+        } catch (SQLException e) {
+            Bukkit.getLogger().log(Level.SEVERE, "[PlaytimePro] Error updating local times", e);
+            return;
+        }
+
+        // Possible Issue: Maps are not cleared so at this point, RAM is going to be crowded
+        // Switch the actual maps with the temporary maps on the main thread
+        // This deals with concurrency issues
+        PlaytimePro.executeSync(() -> {
+            timesAllTime = timesAllMap;
+            timesMonthly = timesMonthlyMap;
+            timesWeekly = timesWeeklyMap;
+        });
+    }
+
+    // Called Sync
     public void saveStorageToDatabase() {
         database.updateTimes(TimeType.ALL_TIME, playerJoins, timesAllTime);
         database.updateTimes(TimeType.MONTHLY, playerJoins, timesMonthly);
@@ -118,29 +157,55 @@ public class DataManager {
         updateLocalStorage();
     }
 
+    public void asyncSaveStorageToDatabase() {
+        // Temporary Maps
+        final Map<UUID, Integer> timesAllMap = new HashMap<>(), timesMonthlyMap = new HashMap<>(),timesWeeklyMap = new HashMap<>();
+
+        // Load the temporary maps with the values on the main thread
+        // This deals with concurrency issues, however it blocks the current thread
+        PlaytimePro.waitToExecuteSync(() -> {
+            timesAllMap.putAll(timesAllTime);
+            timesMonthlyMap.putAll(timesMonthly);
+            timesWeeklyMap.putAll(timesWeekly);
+
+        }, 200);
+
+
+        database.updateTimes(TimeType.ALL_TIME, playerJoins, timesAllMap);
+        database.updateTimes(TimeType.MONTHLY, playerJoins, timesMonthlyMap);
+        database.updateTimes(TimeType.WEEKLY, playerJoins, timesWeeklyMap);
+
+        // Help GC
+        timesAllMap.clear();
+        timesMonthlyMap.clear();
+        timesWeeklyMap.clear();
+
+        updatePlayerJoins();
+        syncUpdateLocalStorage();
+    }
+
     private void updatePlayerJoins() {
         long currentTime = System.currentTimeMillis();
 
         playerJoins.clear();
 
         for (Player p : Bukkit.getOnlinePlayers()) {
-            playerJoins.put(p.getUniqueId(), currentTime);
+            playerJoins.put(p.getUniqueId(), new OnlineTime(currentTime));
         }
     }
 
+    // Called Sync
     public void playerJoin(UUID id) {
-        /*
-         * in case the player left before the last database save and joined back, we want to keep the time as
-         * accurate as possible by updating the old times only for this player
-         * this updates the player time quickly without checking/modifying the database before necessary
-         */
-        if (playerJoins.containsKey(id)) {
-            timesAllTime.put(id, getTime(id, TimeType.ALL_TIME));
-            timesMonthly.put(id, getTime(id, TimeType.MONTHLY));
-            timesWeekly.put(id, getTime(id, TimeType.WEEKLY));
-        }
+        if (playerJoins.containsKey(id))
+            playerJoins.get(id).login();
 
-        playerJoins.put(id, System.currentTimeMillis());
+        playerJoins.put(id, new OnlineTime());
+
+    }
+
+    // Called Sync
+    public void playerLeave(UUID id) {
+        if (playerJoins.containsKey(id)) playerJoins.get(id).handleLogout();
     }
 
     public void closeDatabase() {
@@ -166,32 +231,32 @@ public class DataManager {
         return timesWeekly;
     }
 
+    // Called Sync
     public int getTime(UUID player, TimeType type) {
         switch (type) {
             case ALL_TIME:
-                return calculateSeconds(playerJoins.getOrDefault(player, 0L))
+                return calculateSeconds(player)
                         + timesAllTime.getOrDefault(player, 0);
             case MONTHLY:
-                return calculateSeconds(playerJoins.getOrDefault(player, 0L))
+                return calculateSeconds(player)
                         + timesMonthly.getOrDefault(player, 0);
             case WEEKLY:
-                return calculateSeconds(playerJoins.getOrDefault(player, 0L))
+                return calculateSeconds(player)
                         + timesWeekly.getOrDefault(player, 0);
             default:
                 return 0;
         }
     }
 
-    private int calculateSeconds(long joinMillis) {
-        if (joinMillis == 0)
-            return 0;
+    private int calculateSeconds(UUID player) {
+        final OnlineTime ot = playerJoins.get(player);
 
-        long currentTime = System.currentTimeMillis();
-        long playerTime = currentTime - joinMillis;
+        if (ot == null) return 0;
 
-        return (int) TimeUnit.MILLISECONDS.toSeconds(playerTime);
+        return (int) TimeUnit.MILLISECONDS.toSeconds(ot.getUnstoredPlaytime());
     }
 
+    // Called Async
     public void migrateOld(PlaytimePro plugin) {
         File file = new File(plugin.getDataFolder(), "times.json");
 
@@ -246,7 +311,7 @@ public class DataManager {
 
             plugin.getLogger().info(Messages.getString("migration_completed"));
 
-            updateLocalStorage();
+            syncUpdateLocalStorage();
             plugin.registerRunnables();
 
             scanner.close();
@@ -255,7 +320,8 @@ public class DataManager {
         }
     }
 
-    public void migrateToOther(PlaytimePro plugin) {
+    // Called Async
+    public void migrateToOther(PlaytimePro plugin, Map<UUID, Integer> allTimeMap, Map<UUID, Integer> monthlyMap, Map<UUID, Integer> weeklyMap) {
         try {
             SQLDatabase other = database instanceof MySQL ? new SQLite(plugin) : newMySQL(plugin);
 
@@ -265,12 +331,17 @@ public class DataManager {
             if (other instanceof MySQL && !((MySQL) other).canConnect())
                 return;
 
-            other.updateTimes(TimeType.ALL_TIME, playerJoins, timesAllTime);
-            other.updateTimes(TimeType.MONTHLY, playerJoins, timesMonthly);
-            other.updateTimes(TimeType.WEEKLY, playerJoins, timesWeekly);
+            other.updateTimes(TimeType.ALL_TIME, playerJoins, allTimeMap);
+            other.updateTimes(TimeType.MONTHLY, playerJoins, monthlyMap);
+            other.updateTimes(TimeType.WEEKLY, playerJoins, weeklyMap);
 
             Map<UUID, String> names = database.getNames();
             other.updateNames(names);
+
+            // Help GC
+            allTimeMap.clear();
+            monthlyMap.clear();
+            weeklyMap.clear();
 
             plugin.getLogger().info("Migration to other database completed.");
         } catch (Exception e) {
@@ -317,5 +388,16 @@ public class DataManager {
 
     public void removeHead(SignHead head) {
         database.removeHead(head);
+    }
+
+    public Map<UUID, Integer> getSnapshotMap(TimeType type) {
+
+        if (type.equals(TimeType.ALL_TIME)) {
+            return new HashMap<>(timesAllTime);
+        } else if (type.equals(TimeType.MONTHLY)) {
+            return new HashMap<>(timesMonthly);
+        } else {
+            return new HashMap<>(timesWeekly);
+        }
     }
 }

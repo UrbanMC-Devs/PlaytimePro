@@ -2,7 +2,12 @@ package me.elian.playtime.command;
 
 import me.elian.playtime.PlaytimePro;
 import me.elian.playtime.object.Command;
+import me.elian.playtime.object.TimeType;
 import org.bukkit.command.CommandSender;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class Migrate extends Command {
 
@@ -25,7 +30,11 @@ public class Migrate extends Command {
             plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> getData().migrateOld(plugin));
             sendMessage(sender, "migration_started");
         } else if (option.equalsIgnoreCase("other")) {
-            plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> getData().migrateToOther(plugin));
+            Map<UUID, Integer> allTimeClone = getData().getSnapshotMap(TimeType.ALL_TIME),
+                    monthlyClone = getData().getSnapshotMap(TimeType.MONTHLY),
+                    weeklyClone = getData().getSnapshotMap(TimeType.WEEKLY);
+
+            plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> getData().migrateToOther(plugin, allTimeClone, monthlyClone, weeklyClone));
             sendMessage(sender, "migration_started");
         } else {
             sendMessage(sender, "migrate_info");

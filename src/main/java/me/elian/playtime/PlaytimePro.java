@@ -8,18 +8,18 @@ import me.elian.playtime.manager.DataManager;
 import me.elian.playtime.runnable.DatabaseSaver;
 import me.elian.playtime.runnable.HeadUpdater;
 import me.elian.playtime.runnable.TopListUpdater;
+import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PlaytimePro extends JavaPlugin {
 
     private BukkitRunnable topListUpdater, headUpdater, databaseSaver;
+    private static PlaytimePro instance;
 
     @Override
     public void onEnable() {
@@ -27,6 +27,8 @@ public class PlaytimePro extends JavaPlugin {
             setEnabled(false);
             return;
         }
+
+        instance = this;
 
         registerRunnables();
         registerListeners();
@@ -37,6 +39,7 @@ public class PlaytimePro extends JavaPlugin {
     public void onDisable() {
         stopRunnables();
         DataManager.getInstance().closeDatabase();
+        instance = null;
     }
 
     public void registerRunnables() {
@@ -99,5 +102,45 @@ public class PlaytimePro extends JavaPlugin {
         getCommand("playtimemigrate").setExecutor(new Migrate(this));
         getCommand("playtimepurge").setExecutor(new Purge(this));
         getCommand("playtimereload").setExecutor(new Reload(this));
+    }
+
+    // ONLY EXECUTE ON A SEPARATE THREAD
+    public static void waitToExecuteSync(final Runnable run, int timeout) {
+        final AtomicBoolean running = new AtomicBoolean(true);
+
+        // The object is our lock
+        final Object lock = new Object();
+
+        Bukkit.getScheduler().runTask(instance, () -> {
+            try {
+                // Run the runnable on the main thread
+                run.run();
+            } catch (RuntimeException ex) {
+                Bukkit.getLogger().warning("[PlaytimePro] Runtime exception while executing on main thread!");
+                ex.printStackTrace();
+            } finally {
+                // Set running to false
+                running.set(false);
+                // Release thread block
+                synchronized (lock) {
+                    lock.notifyAll();
+                }
+            }
+        });
+
+        // Block the current thread (an async thread)
+        try {
+            synchronized (lock) {
+                while (running.get()) {
+                    lock.wait(timeout);
+                }
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void executeSync(Runnable run) {
+        Bukkit.getScheduler().runTask(instance, run);
     }
 }
