@@ -7,6 +7,6 @@ public class TopListUpdater extends BukkitRunnable {
 
     @Override
     public void run() {
-        TopListManager.getInstance().updateTopList();
+        TopListManager.getInstance().updateTopListSorted();
     }
 }

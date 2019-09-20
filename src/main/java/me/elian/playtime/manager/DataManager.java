@@ -8,6 +8,7 @@ import me.elian.playtime.db.SQLite;
 import me.elian.playtime.object.OnlineTime;
 import me.elian.playtime.object.SignHead;
 import me.elian.playtime.object.TimeType;
+import me.elian.playtime.object.TopListItem;
 import me.elian.playtime.util.NameUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -27,6 +28,7 @@ import java.util.Scanner;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 
@@ -52,9 +54,9 @@ public class DataManager {
     }
 
     private DataManager() {
-        timesAllTime = new HashMap<>();
-        timesMonthly = new HashMap<>();
-        timesWeekly = new HashMap<>();
+        timesAllTime = new ConcurrentHashMap<>();
+        timesMonthly = new ConcurrentHashMap<>();
+        timesWeekly = new ConcurrentHashMap<>();
 
         playerJoins = new ConcurrentHashMap<>();
     }
@@ -160,30 +162,20 @@ public class DataManager {
     public void asyncSaveStorageToDatabase() {
         long startTime = System.currentTimeMillis(); // Save timing
         // Temporary Maps
-        final Map<UUID, Integer> timesAllMap = new HashMap<>(), timesMonthlyMap = new HashMap<>(),timesWeeklyMap = new HashMap<>();
 
-        // Load the temporary maps with the values on the main thread
-        // This deals with concurrency issues, however it blocks the current thread
-        PlaytimePro.waitToExecuteSync(() -> {
-            timesAllMap.putAll(timesAllTime);
-            timesMonthlyMap.putAll(timesMonthly);
-            timesWeeklyMap.putAll(timesWeekly);
-        }, 200);
-
-        database.updateTimes(TimeType.ALL_TIME, playerJoins, timesAllMap);
-        database.updateTimes(TimeType.MONTHLY, playerJoins, timesMonthlyMap);
-        database.updateTimes(TimeType.WEEKLY, playerJoins, timesWeeklyMap);
-
-        // Help GC
-        timesAllMap.clear();
-        timesMonthlyMap.clear();
-        timesWeeklyMap.clear();
+        database.updateTimes(TimeType.ALL_TIME, playerJoins, timesAllTime);
+        database.updateTimes(TimeType.MONTHLY, playerJoins, timesMonthly);
+        database.updateTimes(TimeType.WEEKLY, playerJoins, timesWeekly);
 
         updatePlayerJoins();
         syncUpdateLocalStorage();
 
         // Display timing in console
         Bukkit.getLogger().info("[PlaytimePro] Playtime saving took " + (System.currentTimeMillis() - startTime) + "ms to complete!");
+    }
+
+    public List<TopListItem> getSortedTimes(String table, int minimumTime, AtomicLong totalHours) {
+        return database.getSortedTimes(table, minimumTime, totalHours);
     }
 
     private void updatePlayerJoins() {

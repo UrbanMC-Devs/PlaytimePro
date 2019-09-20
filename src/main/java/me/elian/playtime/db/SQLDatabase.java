@@ -1,16 +1,27 @@
 package me.elian.playtime.db;
 
 import me.elian.playtime.PlaytimePro;
-import me.elian.playtime.manager.DataManager;
 import me.elian.playtime.object.OnlineTime;
 import me.elian.playtime.object.SignHead;
 import me.elian.playtime.object.TimeType;
+import me.elian.playtime.object.TopListItem;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
-import java.util.*;
+import java.util.GregorianCalendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 
 public abstract class SQLDatabase {
@@ -60,7 +71,42 @@ public abstract class SQLDatabase {
             times.put(player, time);
         }
 
+        statement.close();
+
         return times;
+    }
+
+    public List<TopListItem> getSortedTimes(String table, int minTime, AtomicLong totalHours) {
+        try {
+            Connection con = getConnection();
+
+            if (con == null) return null;
+
+            Statement statement = con.createStatement();
+
+            ResultSet results = statement.executeQuery(SQLMessages.get("toplist_" + table, minTime));
+
+            List<TopListItem> topList = new ArrayList<>();
+
+            int thours   = 0;
+            while (results.next()) {
+                int hours = results.getInt("time") / 3600;
+
+                thours += hours;
+
+                topList.add(new TopListItem(results.getString("last_name"), hours));
+            }
+
+            if (totalHours != null)
+                totalHours.addAndGet(thours);
+
+            statement.close();
+
+            return topList;
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            return null;
+        }
     }
 
     public synchronized void updateTimes(TimeType type, Map<UUID, OnlineTime> playerJoins, Map<UUID, Integer> oldTimes) {
