@@ -4,6 +4,7 @@ version: '1.0'
 author: Elian
 description: Track the amount of time players have played
 api-version: '1.14'
+softdepend: [UUIDMap]
 
 commands:
   playtime:
