@@ -11,7 +11,6 @@ import org.bukkit.configuration.file.FileConfiguration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -47,51 +46,6 @@ public class TopListManager {
         return weeklyTimesConverted;
     }
 
-    // Run Async
-    public void updateTopList() {
-        long startTime = System.currentTimeMillis(); // Start timing
-
-        FileConfiguration config = ConfigManager.getConfig();
-
-        totalHoursOnServer = new AtomicLong();
-        totalHoursMonth = new AtomicLong();
-        totalHoursWeek = new AtomicLong();
-
-        int minimum = config.getInt("top-list-minimum-hours");
-
-        final Map<UUID, Integer> allTimeMap = new HashMap<>(), monthlyMap = new HashMap<>(), weeklyMap = new HashMap<>();
-
-        PlaytimePro.waitToExecuteSync(() -> {
-            allTimeMap.putAll(data.getTimesAllTime());
-            monthlyMap.putAll(data.getTimesMonthly());
-            weeklyMap.putAll(data.getTimesWeekly());
-        },200);
-
-        final List<TopListItem> allTimes, monthlyTimes, weeklyTimes;
-
-        allTimes = getTimesSorted(allTimeMap, totalHoursOnServer, minimum);
-        topList = new PaginalList<>(allTimes, 10);
-
-        monthlyTimes = getTimesSorted(monthlyMap, totalHoursMonth, 0);
-        monthlyTopList = new PaginalList<>(monthlyTimes, 10);
-
-        weeklyTimes = getTimesSorted(weeklyMap, totalHoursWeek, 0);
-        weeklyTopList = new PaginalList<>(weeklyTimes, 10);
-
-        PlaytimePro.executeSync(() -> {
-            timesConverted = allTimes;
-            monthlyTimesConverted = monthlyTimes;
-            weeklyTimesConverted = weeklyTimes;
-        });
-
-        // Help GC
-        allTimeMap.clear();
-        monthlyMap.clear();
-        weeklyMap.clear();
-
-        Bukkit.getLogger().info("[PlaytimePro] Updating top list took " + (System.currentTimeMillis() - startTime) + "ms to complete!");
-    }
-
     // Silver - Run Async
     public void updateTopListSorted() {
         long startTime = System.currentTimeMillis(); // Start timing
@@ -121,6 +75,8 @@ public class TopListManager {
             weeklyTimesConverted = weeklyTimes;
         });
 
+        PlaytimePro.checkForNullName();
+
         Bukkit.getLogger().info("[PlaytimePro] Updating top list took " + (System.currentTimeMillis() - startTime) + "ms to complete!");
     }
 
@@ -129,51 +85,6 @@ public class TopListManager {
         return DataManager.getInstance().getSortedTimes(table, minimumInclude, hoursAdd);
     }
     // Silver End
-
-    private List<TopListItem> getTimesSorted(Map<UUID, Integer> unsortedMap, AtomicLong hoursAdd,
-                                             int minimumInclude) {
-        int minimumFetch = ConfigManager.getConfig().getInt("top-list-fetch-minimum-hours");
-
-        List<TopListItem> converted = new ArrayList<>();
-
-        boolean limit = false;
-
-        for (Map.Entry<UUID, Integer> e : unsortedMap.entrySet()) {
-            int hours = e.getValue() / 3600;
-
-            hoursAdd.addAndGet(hours);
-
-            if (hours < minimumInclude)
-                continue;
-
-            UUID id = e.getKey();
-            String name = data.getLastName(id);
-
-            if (name == null && hours >= minimumFetch && !limit) {
-                name = NameUtil.getNameByUniqueId(id);
-
-                if (name.equals("_playtime_not_found_")) {
-                    name = null;
-                } else if (name.equals("_playtime_limit_reached_")) {
-                    limit = true;
-                    name = null;
-                } else {
-                    data.setLastName(id, name);
-                }
-            }
-
-            if (name == null) {
-                name = Messages.getString("top_list_unknown");
-            }
-
-            converted.add(new TopListItem(name, hours));
-        }
-
-        converted.sort(Comparator.comparing(TopListItem::getTime));
-        Collections.reverse(converted);
-
-        return converted;
-    }
 
     public String getTopListPage(TimeType type, int pageNumber) {
         PaginalList<TopListItem> list = null;

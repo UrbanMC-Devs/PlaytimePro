@@ -5,6 +5,8 @@ import me.elian.playtime.object.OnlineTime;
 import me.elian.playtime.object.SignHead;
 import me.elian.playtime.object.TimeType;
 import me.elian.playtime.object.TopListItem;
+import me.elian.playtime.runnable.NullNameUpdater;
+import me.elian.playtime.util.NameUtil;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -50,8 +52,7 @@ public abstract class SQLDatabase {
         }
     }
 
-    public Map<UUID, Integer> getTimes(Statement statement, TimeType type) throws SQLException {
-        Map<UUID, Integer> times = new HashMap<>();
+    public void getTimes(Statement statement, TimeType type, Map<UUID, Integer> timeMap) throws SQLException {
         String sql = "";
 
         if (type == TimeType.ALL_TIME) {
@@ -68,12 +69,10 @@ public abstract class SQLDatabase {
             UUID player = UUID.fromString(rs.getString("player"));
             int time = rs.getInt("time");
 
-            times.put(player, time);
+            timeMap.put(player, time);
         }
 
         statement.close();
-
-        return times;
     }
 
     public List<TopListItem> getSortedTimes(String table, int minTime, AtomicLong totalHours) {
@@ -88,7 +87,7 @@ public abstract class SQLDatabase {
 
             List<TopListItem> topList = new ArrayList<>();
 
-            int thours   = 0;
+            int thours = 0;
             while (results.next()) {
                 int hours = results.getInt("time") / 3600;
 
@@ -175,6 +174,61 @@ public abstract class SQLDatabase {
         }
     }
 
+    public boolean updateNullNames() {
+        String databaseType = this instanceof MySQL ? "mysql" : "sqlite";
+
+        try {
+            Connection con = getConnection();
+
+            if (con == null) return true;
+
+            PreparedStatement updateStatement = con.prepareStatement(SQLMessages.get("nullnames_update_" + databaseType));
+
+            Statement fetchStatement = con.createStatement();
+
+            ResultSet rs = fetchStatement.executeQuery(SQLMessages.get("nullnames_get"));
+
+            con.setAutoCommit(false);
+
+            int resultSize = 0;
+
+            while (rs.next()) {
+                resultSize++;
+
+                UUID id = UUID.fromString(rs.getString("player"));
+
+                String name = NameUtil.getNameByUniqueId(id);
+
+                if (name.equals("_playtime_not_found_"))
+                    continue;
+
+                if (name.equals("_playtime_limit_reached_")) {
+                    resultSize = 600; // Fool the counter
+                    break;
+                }
+
+                updateStatement.setString(1, id.toString());
+                updateStatement.setString(2, name);
+                updateStatement.setString(3, name);
+
+                updateStatement.addBatch();
+            }
+
+            updateStatement.executeBatch();
+            updateStatement.close();
+
+            fetchStatement.close();
+
+            con.commit();
+            con.setAutoCommit(true);
+
+            return resultSize == 600;
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            return true;
+        }
+    }
+
     private int calculateSeconds(OnlineTime time) {
         return (int) TimeUnit.MILLISECONDS.toSeconds(time.getUnstoredPlaytime());
     }
@@ -244,60 +298,6 @@ public abstract class SQLDatabase {
         }
     }
 
-    public Map<UUID, String> getLastNameMap() {
-        Map<UUID, String> lastNames = new HashMap<>();
-
-        Connection con = getConnection();
-
-        if (con == null)
-            return null;
-
-        try {
-            Statement statement = con.createStatement();
-            ResultSet rs = statement.executeQuery(SQLMessages.get("select_all_time"));
-
-            while (rs.next()) {
-                UUID id = UUID.fromString(rs.getString("player"));
-                String lastName = rs.getString("last_name");
-
-                if (lastName != null) {
-                    lastNames.put(id, lastName);
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return lastNames;
-    }
-
-    public String getLastName(UUID id) {
-        Connection con = getConnection();
-
-        if (con == null)
-            return null;
-
-        try {
-            Statement statement = con.createStatement();
-            ResultSet rs = statement.executeQuery(SQLMessages.get("select_all_time_player", id.toString()));
-
-            String lastName;
-
-            if (rs.next()) {
-                lastName = rs.getString("last_name");
-            } else {
-                lastName = "";
-            }
-
-            statement.close();
-
-            return lastName;
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
     public void setLastName(UUID id, String name) {
         Connection con = getConnection();
 
@@ -316,7 +316,7 @@ public abstract class SQLDatabase {
         }
     }
 
-    public synchronized void updateNames(Map<UUID, String> names) {
+    public synchronized void updateNames(Map<String, String> names) {
         Connection con = getConnection();
 
         if (con == null)
@@ -330,8 +330,8 @@ public abstract class SQLDatabase {
             PreparedStatement statement =
                     con.prepareStatement(SQLMessages.get("prepared_insert_all_time_name_" + databaseType));
 
-            for (Entry<UUID, String> e : names.entrySet()) {
-                statement.setString(1, e.getKey().toString());
+            for (Entry<String, String> e : names.entrySet()) {
+                statement.setString(1, e.getKey());
                 statement.setString(2, e.getValue());
 
                 statement.setString(3, e.getValue());
@@ -346,34 +346,6 @@ public abstract class SQLDatabase {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-    }
-
-    public Map<UUID, String> getNames() {
-        Map<UUID, String> names = new HashMap<>();
-
-        Connection con = getConnection();
-
-        if (con == null)
-            return names;
-
-        try {
-            Statement statement = con.createStatement();
-
-            ResultSet rs = statement.executeQuery(SQLMessages.get("select_all_time"));
-
-            while (rs.next()) {
-                UUID id = UUID.fromString(rs.getString("player"));
-                String name = rs.getString("last_name");
-
-                names.put(id, name);
-            }
-
-            statement.close();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return names;
     }
 
     public int purge(int time) {

@@ -30,11 +30,7 @@ public class Migrate extends Command {
             plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> getData().migrateOld(plugin));
             sendMessage(sender, "migration_started");
         } else if (option.equalsIgnoreCase("other")) {
-            Map<UUID, Integer> allTimeClone = getData().getSnapshotMap(TimeType.ALL_TIME),
-                    monthlyClone = getData().getSnapshotMap(TimeType.MONTHLY),
-                    weeklyClone = getData().getSnapshotMap(TimeType.WEEKLY);
-
-            plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> getData().migrateToOther(plugin, allTimeClone, monthlyClone, weeklyClone));
+            plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> getData().migrateToOther(plugin));
             sendMessage(sender, "migration_started");
         } else {
             sendMessage(sender, "migrate_info");

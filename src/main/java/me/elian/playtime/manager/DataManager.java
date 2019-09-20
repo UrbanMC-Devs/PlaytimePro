@@ -1,6 +1,7 @@
 package me.elian.playtime.manager;
 
 import com.google.gson.Gson;
+import me.Silverwolfg11.UUIDMap.UUIDMap;
 import me.elian.playtime.PlaytimePro;
 import me.elian.playtime.db.MySQL;
 import me.elian.playtime.db.SQLDatabase;
@@ -109,9 +110,14 @@ public class DataManager {
             Connection con = database.getConnection();
             Statement statement = con.createStatement();
 
-            timesAllTime = database.getTimes(statement, TimeType.ALL_TIME);
-            timesMonthly = database.getTimes(statement, TimeType.MONTHLY);
-            timesWeekly = database.getTimes(statement, TimeType.WEEKLY);
+            // Help GC
+            timesAllTime.clear();
+            timesMonthly.clear();
+            timesWeekly.clear();
+
+            database.getTimes(statement, TimeType.ALL_TIME, timesAllTime);
+            database.getTimes(statement, TimeType.MONTHLY, timesMonthly);
+            database.getTimes(statement, TimeType.WEEKLY, timesWeekly);
 
             statement.close();
         } catch (SQLException e) {
@@ -119,56 +125,16 @@ public class DataManager {
         }
     }
 
-    // Called Async when migrateOld or when TopListUpdater run
-    // It will fetch the data but then update the timeMaps on the main thread
-    public void syncUpdateLocalStorage() {
-        // Temporary Maps
-        final Map<UUID, Integer> timesAllMap, timesMonthlyMap,timesWeeklyMap;
-
-        try {
-            Connection con = database.getConnection();
-            Statement statement = con.createStatement();
-
-            timesAllMap = database.getTimes(statement, TimeType.ALL_TIME);
-            timesMonthlyMap = database.getTimes(statement, TimeType.MONTHLY);
-            timesWeeklyMap = database.getTimes(statement, TimeType.WEEKLY);
-
-            statement.close();
-        } catch (SQLException e) {
-            Bukkit.getLogger().log(Level.SEVERE, "[PlaytimePro] Error updating local times", e);
-            return;
-        }
-
-        // Possible Issue: Maps are not cleared so at this point, RAM is going to be crowded
-        // Switch the actual maps with the temporary maps on the main thread
-        // This deals with concurrency issues
-        PlaytimePro.executeSync(() -> {
-            timesAllTime = timesAllMap;
-            timesMonthly = timesMonthlyMap;
-            timesWeekly = timesWeeklyMap;
-        });
-    }
-
-    // Called Sync
+    // Called Async/Sync
     public void saveStorageToDatabase() {
+        long startTime = System.currentTimeMillis(); // Save timing
+
         database.updateTimes(TimeType.ALL_TIME, playerJoins, timesAllTime);
         database.updateTimes(TimeType.MONTHLY, playerJoins, timesMonthly);
         database.updateTimes(TimeType.WEEKLY, playerJoins, timesWeekly);
 
         updatePlayerJoins();
         updateLocalStorage();
-    }
-
-    public void asyncSaveStorageToDatabase() {
-        long startTime = System.currentTimeMillis(); // Save timing
-        // Temporary Maps
-
-        database.updateTimes(TimeType.ALL_TIME, playerJoins, timesAllTime);
-        database.updateTimes(TimeType.MONTHLY, playerJoins, timesMonthly);
-        database.updateTimes(TimeType.WEEKLY, playerJoins, timesWeekly);
-
-        updatePlayerJoins();
-        syncUpdateLocalStorage();
 
         // Display timing in console
         Bukkit.getLogger().info("[PlaytimePro] Playtime saving took " + (System.currentTimeMillis() - startTime) + "ms to complete!");
@@ -213,18 +179,6 @@ public class DataManager {
             database.getConnection().close();
         } catch (Exception ignored) {
         }
-    }
-
-    Map<UUID, Integer> getTimesAllTime() {
-        return timesAllTime;
-    }
-
-    Map<UUID, Integer> getTimesMonthly() {
-        return timesMonthly;
-    }
-
-    Map<UUID, Integer> getTimesWeekly() {
-        return timesWeekly;
     }
 
     // Called Sync
@@ -277,37 +231,21 @@ public class DataManager {
             plugin.getLogger().info(Messages.getString("migration_uploading_times"));
             database.updateTimesMigration(TimeType.ALL_TIME, times);
 
-            Map<UUID, String> names = new HashMap<>();
-
-            boolean limit = false;
-
             plugin.getLogger().info(Messages.getString("migration_updating_names"));
 
-            for (UUID id : times.keySet()) {
-                OfflinePlayer op = Bukkit.getOfflinePlayer(id);
-                String name = op.getName();
-
-                if (name == null && !limit) {
-                    name = NameUtil.getNameByUniqueId(id);
-
-                    if (name.equals("_playtime_not_found_")) {
-                        name = null;
-                    } else if (name.equals("_playtime_limit_reached_")) {
-                        limit = true;
-                        name = null;
-                    }
-                }
-
-                if (name != null) {
-                    names.put(id, name);
-                }
+            // Use Silverwolfg11's UUIDMap plugin (which is already used for TownyNameUpdater and XenLink) to get
+            // the names from UUID from players who have already joined the server async.
+            // We cannot use Bukkit.getOfflinePlayer because it is not thread safe!
+            if (PlaytimePro.getUUIDMapDependency() != null) {
+                PlaytimePro.getUUIDMapDependency().getNameFromUUID(times.keySet()).thenAcceptAsync(map -> {
+                    if (!map.isEmpty())
+                        database.updateNames(map);
+                });
             }
-
-            database.updateNames(names);
 
             plugin.getLogger().info(Messages.getString("migration_completed"));
 
-            syncUpdateLocalStorage();
+            updateLocalStorage();
             plugin.registerRunnables();
 
             scanner.close();
@@ -317,7 +255,7 @@ public class DataManager {
     }
 
     // Called Async
-    public void migrateToOther(PlaytimePro plugin, Map<UUID, Integer> allTimeMap, Map<UUID, Integer> monthlyMap, Map<UUID, Integer> weeklyMap) {
+    public void migrateToOther(PlaytimePro plugin) {
         try {
             SQLDatabase other = database instanceof MySQL ? new SQLite(plugin) : newMySQL(plugin);
 
@@ -327,17 +265,10 @@ public class DataManager {
             if (other instanceof MySQL && !((MySQL) other).canConnect())
                 return;
 
-            other.updateTimes(TimeType.ALL_TIME, playerJoins, allTimeMap);
-            other.updateTimes(TimeType.MONTHLY, playerJoins, monthlyMap);
-            other.updateTimes(TimeType.WEEKLY, playerJoins, weeklyMap);
+            other.updateTimes(TimeType.ALL_TIME, playerJoins, timesAllTime);
+            other.updateTimes(TimeType.MONTHLY, playerJoins, timesMonthly);
+            other.updateTimes(TimeType.WEEKLY, playerJoins, timesWeekly);
 
-            Map<UUID, String> names = database.getNames();
-            other.updateNames(names);
-
-            // Help GC
-            allTimeMap.clear();
-            monthlyMap.clear();
-            weeklyMap.clear();
 
             plugin.getLogger().info("Migration to other database completed.");
         } catch (Exception e) {
@@ -366,10 +297,6 @@ public class DataManager {
         return new MySQL(plugin, host, port, databaseName, username, password);
     }
 
-    public String getLastName(UUID id) {
-        return database.getLastName(id);
-    }
-
     public void setLastName(UUID id, String name) {
         database.setLastName(id, name);
     }
@@ -386,14 +313,7 @@ public class DataManager {
         database.removeHead(head);
     }
 
-    public Map<UUID, Integer> getSnapshotMap(TimeType type) {
-
-        if (type.equals(TimeType.ALL_TIME)) {
-            return new HashMap<>(timesAllTime);
-        } else if (type.equals(TimeType.MONTHLY)) {
-            return new HashMap<>(timesMonthly);
-        } else {
-            return new HashMap<>(timesWeekly);
-        }
+    public boolean updateNullNames() {
+        return database.updateNullNames();
     }
 }

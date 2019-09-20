@@ -7,6 +7,6 @@ public class DatabaseSaver extends BukkitRunnable {
 
     @Override
     public void run() {
-        DataManager.getInstance().asyncSaveStorageToDatabase();
+        DataManager.getInstance().saveStorageToDatabase();
     }
 }

@@ -7,7 +7,9 @@ import me.elian.playtime.manager.ConfigManager;
 import me.elian.playtime.manager.DataManager;
 import me.elian.playtime.runnable.DatabaseSaver;
 import me.elian.playtime.runnable.HeadUpdater;
+import me.elian.playtime.runnable.NullNameUpdater;
 import me.elian.playtime.runnable.TopListUpdater;
+import me.elian.playtime.util.UUIDMapDependency;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.PluginManager;
@@ -20,6 +22,7 @@ public class PlaytimePro extends JavaPlugin {
 
     private BukkitRunnable topListUpdater, headUpdater, databaseSaver;
     private static PlaytimePro instance;
+    private static UUIDMapDependency uuidMap;
 
     @Override
     public void onEnable() {
@@ -30,6 +33,7 @@ public class PlaytimePro extends JavaPlugin {
 
         instance = this;
 
+        registerSoftDependencies();
         registerRunnables();
         registerListeners();
         registerCommands();
@@ -104,43 +108,20 @@ public class PlaytimePro extends JavaPlugin {
         getCommand("playtimereload").setExecutor(new Reload(this));
     }
 
-    // ONLY EXECUTE ON A SEPARATE THREAD
-    public static void waitToExecuteSync(final Runnable run, int timeout) {
-        final AtomicBoolean running = new AtomicBoolean(true);
-
-        // The object is our lock
-        final Object lock = new Object();
-
-        Bukkit.getScheduler().runTask(instance, () -> {
-            try {
-                // Run the runnable on the main thread
-                run.run();
-            } catch (RuntimeException ex) {
-                Bukkit.getLogger().warning("[PlaytimePro] Runtime exception while executing on main thread!");
-                ex.printStackTrace();
-            } finally {
-                // Set running to false
-                running.set(false);
-                // Release thread block
-                synchronized (lock) {
-                    lock.notifyAll();
-                }
-            }
-        });
-
-        // Block the current thread (an async thread)
-        try {
-            synchronized (lock) {
-                while (running.get()) {
-                    lock.wait(timeout);
-                }
-            }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+    private void registerSoftDependencies() {
+        if (Bukkit.getPluginManager().getPlugin("UUIDMap") != null)
+            uuidMap = new UUIDMapDependency();
     }
 
     public static void executeSync(Runnable run) {
         Bukkit.getScheduler().runTask(instance, run);
+    }
+
+    public static void checkForNullName() {
+        NullNameUpdater.runTask(instance);
+    }
+
+    public static UUIDMapDependency getUUIDMapDependency() {
+        return uuidMap;
     }
 }
