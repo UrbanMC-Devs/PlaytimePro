@@ -1,7 +1,6 @@
 package me.elian.playtime.manager;
 
 import com.google.gson.Gson;
-import me.Silverwolfg11.UUIDMap.UUIDMap;
 import me.elian.playtime.PlaytimePro;
 import me.elian.playtime.db.MySQL;
 import me.elian.playtime.db.SQLDatabase;
@@ -10,9 +9,7 @@ import me.elian.playtime.object.OnlineTime;
 import me.elian.playtime.object.SignHead;
 import me.elian.playtime.object.TimeType;
 import me.elian.playtime.object.TopListItem;
-import me.elian.playtime.util.NameUtil;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 
@@ -22,13 +19,13 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.AbstractMap.SimpleEntry;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
@@ -42,6 +39,8 @@ public class DataManager {
     private Map<UUID, Integer> timesAllTime;
     private Map<UUID, Integer> timesMonthly;
     private Map<UUID, Integer> timesWeekly;
+
+    private AtomicInteger localUpdateIterations = new AtomicInteger(0);
 
     /* this map contains players along with the time (millis) that they joined
      * this is used to make calculations, using the old player time, to get the current time the player has
@@ -105,7 +104,7 @@ public class DataManager {
     }
 
     // Called Sync
-    public void updateLocalStorage() {
+    public void  updateLocalStorage() {
         try {
             Connection con = database.getConnection();
             Statement statement = con.createStatement();
@@ -134,7 +133,15 @@ public class DataManager {
         database.updateTimes(TimeType.WEEKLY, playerJoins, timesWeekly);
 
         updatePlayerJoins();
-        updateLocalStorage();
+
+        // This atomic integer is used to mark the number of iterations
+        // Once there have been 3 iterations of the save, the time maps will update and fill the data from the DB
+        if (localUpdateIterations.get() == 3) {
+            updateLocalStorage();
+            localUpdateIterations.set(0);
+        }
+
+        localUpdateIterations.addAndGet(1);
 
         // Display timing in console
         Bukkit.getLogger().info("[PlaytimePro] Playtime saving took " + (System.currentTimeMillis() - startTime) + "ms to complete!");

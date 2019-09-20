@@ -7,6 +7,7 @@ import me.elian.playtime.object.TimeType;
 import me.elian.playtime.object.TopListItem;
 import me.elian.playtime.runnable.NullNameUpdater;
 import me.elian.playtime.util.NameUtil;
+import org.bukkit.Bukkit;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -131,6 +132,8 @@ public abstract class SQLDatabase {
                     UUID id = entry.getKey();
                     int seconds = calculateSeconds(entry.getValue()) + oldTimes.getOrDefault(id, 0);
 
+                    oldTimes.put(id, seconds); // Update times locally w/o having to wipe the entire map and fill it from the DB
+
                     statement.setString(1, id.toString());
                     statement.setInt(2, seconds);
 
@@ -152,6 +155,8 @@ public abstract class SQLDatabase {
                 for (Entry<UUID, OnlineTime> entry : playerJoins.entrySet()) {
                     UUID id = entry.getKey();
                     int seconds = calculateSeconds(entry.getValue()) + oldTimes.getOrDefault(id, 0);
+
+                    oldTimes.put(id, seconds); // Update times locally w/o having to wipe the entire map and fill it from the DB
 
                     statement.setString(1, id.toString());
                     statement.setInt(2, seconds);
@@ -175,6 +180,8 @@ public abstract class SQLDatabase {
     }
 
     public boolean updateNullNames() {
+        long startTime = System.currentTimeMillis(); // Time method
+
         String databaseType = this instanceof MySQL ? "mysql" : "sqlite";
 
         try {
@@ -182,13 +189,11 @@ public abstract class SQLDatabase {
 
             if (con == null) return true;
 
-            PreparedStatement updateStatement = con.prepareStatement(SQLMessages.get("nullnames_update_" + databaseType));
+            PreparedStatement updateStatement = con.prepareStatement(SQLMessages.get("name_update_" + databaseType));
 
             Statement fetchStatement = con.createStatement();
 
             ResultSet rs = fetchStatement.executeQuery(SQLMessages.get("nullnames_get"));
-
-            con.setAutoCommit(false);
 
             int resultSize = 0;
 
@@ -219,8 +224,7 @@ public abstract class SQLDatabase {
 
             fetchStatement.close();
 
-            con.commit();
-            con.setAutoCommit(true);
+            Bukkit.getLogger().info("[PlaytimePro] Updating empty names took " + (System.currentTimeMillis() - startTime) + "ms! Updated " + resultSize +  " names!");
 
             return resultSize == 600;
         } catch (SQLException ex) {
@@ -305,12 +309,17 @@ public abstract class SQLDatabase {
             return;
 
         try {
-            String databaseType = this instanceof MySQL ? "mysql" : "sqlite";
+            final String databaseType = this instanceof MySQL ? "mysql" : "sqlite";
 
-            Statement statement = con.createStatement();
-            statement.execute(SQLMessages.get("insert_all_time_name_" + databaseType, id.toString(), name));
+            final PreparedStatement updateStatement = con.prepareStatement(SQLMessages.get("name_update_" + databaseType));
 
-            statement.close();
+            updateStatement.setString(1, id.toString());
+            updateStatement.setString(2, name);
+            updateStatement.setString(3, name);
+
+            updateStatement.execute();
+
+            updateStatement.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }

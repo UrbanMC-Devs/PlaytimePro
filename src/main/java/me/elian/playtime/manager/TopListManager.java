@@ -4,23 +4,16 @@ import me.elian.playtime.PlaytimePro;
 import me.elian.playtime.object.PaginalList;
 import me.elian.playtime.object.TimeType;
 import me.elian.playtime.object.TopListItem;
-import me.elian.playtime.util.NameUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class TopListManager {
 
     private static TopListManager instance = new TopListManager();
-
-    private DataManager data = DataManager.getInstance();
 
     private List<TopListItem> timesConverted, monthlyTimesConverted, weeklyTimesConverted;
     private PaginalList<TopListItem> topList, monthlyTopList, weeklyTopList;

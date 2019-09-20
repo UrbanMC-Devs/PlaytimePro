@@ -19,7 +19,6 @@ public class NullNameUpdater extends BukkitRunnable {
             cancel();
             return;
         }
-
         if (!DataManager.getInstance().updateNullNames()) {
             running = false;
             cancel();
