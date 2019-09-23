@@ -67,9 +67,7 @@ public class DataManager {
      * @return true if database successfully loaded, false if not successfully loaded
      */
     public boolean registerDatabase(PlaytimePro plugin) {
-        FileConfiguration config = ConfigManager.getConfig();
-
-        String databaseType = config.getString("database-type");
+        String databaseType = ConfigManager.getDatabaseType();
 
         if (databaseType == null) {
             plugin.getLogger().severe("Invalid database type! Check your config. Plugin disabling.");
@@ -288,13 +286,11 @@ public class DataManager {
     }
 
     private MySQL newMySQL(PlaytimePro plugin) {
-        FileConfiguration config = ConfigManager.getConfig();
-
-        String host = config.getString("mysql-host");
-        int port = config.getInt("mysql-port");
-        String databaseName = config.getString("mysql-database");
-        String username = config.getString("mysql-username");
-        String password = config.getString("mysql-password");
+        String host = ConfigManager.getMySQLHost();
+        int port = ConfigManager.getMySQLPort();
+        String databaseName = ConfigManager.getMySQLDatabase();
+        String username = ConfigManager.getMySQLUsername();
+        String password = ConfigManager.getMySQLPassword();
 
         if (host == null || port == 0 || databaseName == null || username == null || password == null) {
             plugin.getLogger().severe("Invalid MySQL database configuration! Check your config. Plugin disabling.");

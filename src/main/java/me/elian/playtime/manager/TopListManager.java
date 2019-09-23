@@ -43,13 +43,11 @@ public class TopListManager {
     public void updateTopListSorted() {
         long startTime = System.currentTimeMillis(); // Start timing
 
-        FileConfiguration config = ConfigManager.getConfig();
-
         totalHoursOnServer = new AtomicLong();
         totalHoursMonth = new AtomicLong();
         totalHoursWeek = new AtomicLong();
 
-        int minimum = config.getInt("top-list-minimum-hours");
+        int minimum = ConfigManager.getTopMinimumHours();
 
         final List<TopListItem> allTimes, monthlyTimes, weeklyTimes;
 

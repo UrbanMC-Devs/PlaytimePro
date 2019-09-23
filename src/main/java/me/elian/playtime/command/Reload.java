@@ -23,7 +23,7 @@ public class Reload extends Command {
         getData().saveStorageToDatabase();
 
         Messages.getInstance().reload();
-        ConfigManager.getInstance().reload();
+        ConfigManager.reload();
 
         if (!DataManager.getInstance().registerDatabase(plugin)) {
             sendMessage(sender, "reload_failed");

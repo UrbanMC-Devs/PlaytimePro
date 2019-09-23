@@ -47,9 +47,7 @@ public class PlaytimePro extends JavaPlugin {
     }
 
     public void registerRunnables() {
-        FileConfiguration config = ConfigManager.getConfig();
-
-        int topListTime = config.getInt("update-top-list");
+        int topListTime = ConfigManager.getTopUpdateInterval();
 
         if (topListTime == 0)
             topListTime = 1;
@@ -57,7 +55,7 @@ public class PlaytimePro extends JavaPlugin {
         topListUpdater = new TopListUpdater();
         topListUpdater.runTaskTimerAsynchronously(this, 0, 20 * topListTime);
 
-        int headUpdaterTime = config.getInt("update-heads");
+        int headUpdaterTime = ConfigManager.getHeadsUpdateInterval();
 
         if (headUpdaterTime == 0)
             headUpdaterTime = 1;
@@ -65,7 +63,7 @@ public class PlaytimePro extends JavaPlugin {
         headUpdater = new HeadUpdater();
         headUpdater.runTaskTimer(this, 200, 20 * headUpdaterTime);
 
-        int saveTime = config.getInt("save-database");
+        int saveTime = ConfigManager.getSaveInterval();
 
         if (saveTime == 0)
             saveTime = 1;
