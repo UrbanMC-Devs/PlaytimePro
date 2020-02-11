@@ -1,6 +1,5 @@
 package me.elian.playtime.manager;
 
-import me.elian.playtime.PlaytimePro;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 

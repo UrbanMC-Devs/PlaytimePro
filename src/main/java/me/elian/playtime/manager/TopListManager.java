@@ -4,8 +4,8 @@ import me.elian.playtime.PlaytimePro;
 import me.elian.playtime.object.PaginalList;
 import me.elian.playtime.object.TimeType;
 import me.elian.playtime.object.TopListItem;
+import me.elian.playtime.runnable.NullNameUpdater;
 import org.bukkit.Bukkit;
-import org.bukkit.configuration.file.FileConfiguration;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,15 +60,15 @@ public class TopListManager {
         weeklyTimes = getTimesSorted("weekly", 0, totalHoursWeek);
         weeklyTopList = new PaginalList<>(weeklyTimes, 10);
 
-        PlaytimePro.executeSync(() -> {
+        Bukkit.getScheduler().runTask(PlaytimePro.getInstance(), () -> {
             timesConverted = allTimes;
             monthlyTimesConverted = monthlyTimes;
             weeklyTimesConverted = weeklyTimes;
         });
 
-        PlaytimePro.checkForNullName();
+        NullNameUpdater.runTask();
 
-        Bukkit.getLogger().info("[PlaytimePro] Updating top list took " + (System.currentTimeMillis() - startTime) + "ms to complete!");
+        PlaytimePro.debug("Updating top list took " + (System.currentTimeMillis() - startTime) + "ms to complete!");
     }
 
     // Silver Start - Rewrite sort method fetching list sorted from SQL

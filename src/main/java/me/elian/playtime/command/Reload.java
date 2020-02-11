@@ -9,28 +9,22 @@ import org.bukkit.command.CommandSender;
 
 public class Reload extends Command {
 
-    private PlaytimePro plugin;
-
-    public Reload(PlaytimePro plugin) {
-        this.plugin = plugin;
-    }
-
     @Override
     public void onCommand(CommandSender sender, String label, String[] args) {
         sendMessage(sender, "reload_start");
 
-        plugin.stopRunnables();
+        PlaytimePro.getInstance().stopRunnables();
         getData().saveStorageToDatabase();
 
         Messages.getInstance().reload();
         ConfigManager.reload();
 
-        if (!DataManager.getInstance().registerDatabase(plugin)) {
+        if (!DataManager.getInstance().registerDatabase()) {
             sendMessage(sender, "reload_failed");
             return;
         }
 
-        plugin.registerRunnables();
+        PlaytimePro.getInstance().registerRunnables();
         sendMessage(sender, "reload_finished");
     }
 }

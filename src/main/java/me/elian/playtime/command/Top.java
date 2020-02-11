@@ -1,16 +1,11 @@
 package me.elian.playtime.command;
 
-import me.elian.playtime.manager.Messages;
 import me.elian.playtime.manager.TopListManager;
 import me.elian.playtime.object.Command;
 import me.elian.playtime.object.TimeType;
-import me.elian.playtime.object.TopListItem;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class Top extends Command {
 
@@ -30,15 +25,6 @@ public class Top extends Command {
                 sender.sendMessage(ChatColor.stripColor(page));
         } catch (NullPointerException e) {
             sendMessage(sender, "top_list_not_loaded");
-        }
-    }
-
-    private boolean isInt(String number) {
-        try {
-            Integer.parseInt(number);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
         }
     }
 }

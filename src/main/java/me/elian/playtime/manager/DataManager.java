@@ -10,7 +10,6 @@ import me.elian.playtime.object.SignHead;
 import me.elian.playtime.object.TimeType;
 import me.elian.playtime.object.TopListItem;
 import org.bukkit.Bukkit;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 
 import java.io.File;
@@ -19,15 +18,17 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.AbstractMap.SimpleEntry;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class DataManager {
@@ -36,13 +37,7 @@ public class DataManager {
 
     private SQLDatabase database;
 
-    private Map<UUID, Integer> timesAllTime;
-    private Map<UUID, Integer> timesMonthly;
-    private Map<UUID, Integer> timesWeekly;
-
-    private AtomicInteger localUpdateIterations = new AtomicInteger(0);
-
-    /* this map contains players along with the time (millis) that they joined
+    /* This map contains players along with the time (millis) that they joined
      * this is used to make calculations, using the old player time, to get the current time the player has
      * this is updated each time the database is saved so that we can remove players who are no longer online
      * and save some memory
@@ -54,125 +49,128 @@ public class DataManager {
     }
 
     private DataManager() {
-        timesAllTime = new ConcurrentHashMap<>();
-        timesMonthly = new ConcurrentHashMap<>();
-        timesWeekly = new ConcurrentHashMap<>();
-
         playerJoins = new ConcurrentHashMap<>();
+    }
+
+    private Logger getLogger() {
+        return PlaytimePro.getInstance().getLogger();
     }
 
     /**
      * Called on the main thread
-     * @param plugin PlaytimePro instance
      * @return true if database successfully loaded, false if not successfully loaded
      */
-    public boolean registerDatabase(PlaytimePro plugin) {
+    public boolean registerDatabase() {
         String databaseType = ConfigManager.getDatabaseType();
 
         if (databaseType == null) {
-            plugin.getLogger().severe("Invalid database type! Check your config. Plugin disabling.");
+            getLogger().severe("Invalid database type! Check your config. Plugin disabling.");
             return false;
         }
 
         if (databaseType.equalsIgnoreCase("sqlite")) {
-            database = new SQLite(plugin);
-            updateLocalStorage();
+            database = new SQLite();
 
-            plugin.getLogger().info("Loaded SQLite Database");
-
-            return true;
+            getLogger().info("Loaded SQLite Database");
         } else if (databaseType.equalsIgnoreCase("mysql")) {
-            database = newMySQL(plugin);
+            database = newMySQL();
 
             if (database == null)
                 return false;
 
-            if (!((MySQL) database).canConnect())
-                return false;
-
-            updateLocalStorage();
-
-            plugin.getLogger().info("Loaded MySQL Database");
-
-            return true;
+            getLogger().info("Loaded MySQL Database");
         } else {
-            plugin.getLogger().severe("Invalid database type! Check your config. Plugin disabling.");
+            getLogger().severe("Invalid database type! Check your config. Plugin disabling.");
             return false;
         }
-    }
 
-    // Called Sync
-    public void  updateLocalStorage() {
-        try {
-            Connection con = database.getConnection();
-            Statement statement = con.createStatement();
-
-            // Help GC
-            timesAllTime.clear();
-            timesMonthly.clear();
-            timesWeekly.clear();
-
-            database.getTimes(statement, TimeType.ALL_TIME, timesAllTime);
-            database.getTimes(statement, TimeType.MONTHLY, timesMonthly);
-            database.getTimes(statement, TimeType.WEEKLY, timesWeekly);
-
-            statement.close();
-        } catch (SQLException e) {
-            Bukkit.getLogger().log(Level.SEVERE, "[PlaytimePro] Error updating local times", e);
+        if(!database.establishConnection()) {
+            getLogger().severe("Could not establish a valid connection to the database! Disabling...");
+            return false;
         }
+
+        getLogger().info("Successfully established a connection to the database!");
+        return true;
     }
 
     // Called Async/Sync
     public void saveStorageToDatabase() {
-        long startTime = System.currentTimeMillis(); // Save timing
+        long startTime = System.currentTimeMillis(); // Time saves
 
-        database.updateTimes(TimeType.ALL_TIME, playerJoins, timesAllTime);
-        database.updateTimes(TimeType.MONTHLY, playerJoins, timesMonthly);
-        database.updateTimes(TimeType.WEEKLY, playerJoins, timesWeekly);
+        DateManager.getInstance().updateTime();
 
-        updatePlayerJoins();
+        final Map<UUID, Integer> localPlaytimes = getRecentPlaytimes();
 
-        // This atomic integer is used to mark the number of iterations
-        // Once there have been 3 iterations of the save, the time maps will update and fill the data from the DB
-        if (localUpdateIterations.get() == 3) {
-            updateLocalStorage();
-            localUpdateIterations.set(0);
-        }
+        database.updateTimes(localPlaytimes);
 
-        localUpdateIterations.addAndGet(1);
+        filterOfflinePlayers(localPlaytimes.keySet());
 
-        // Display timing in console
-        Bukkit.getLogger().info("[PlaytimePro] Playtime saving took " + (System.currentTimeMillis() - startTime) + "ms to complete!");
+        // Clean GC
+        localPlaytimes.clear();
+
+        // Display timing in debug
+        PlaytimePro.debug("Updating playtime database took " + (System.currentTimeMillis() - startTime) + "ms to complete!");
     }
 
     public List<TopListItem> getSortedTimes(String table, int minimumTime, AtomicLong totalHours) {
         return database.getSortedTimes(table, minimumTime, totalHours);
     }
 
-    private void updatePlayerJoins() {
-        long currentTime = System.currentTimeMillis();
+    private void filterOfflinePlayers(Set<UUID> storedPlayers) {
+        for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+            storedPlayers.remove(onlinePlayer.getUniqueId());
+        }
 
-        playerJoins.clear();
-
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            playerJoins.put(p.getUniqueId(), new OnlineTime(currentTime));
+        for (UUID offlinePlayer : storedPlayers) {
+            playerJoins.remove(offlinePlayer);
         }
     }
 
-    // Called Sync
-    public void playerJoin(UUID id) {
-        if (playerJoins.containsKey(id)) {
-            playerJoins.get(id).login();
-            return;
+    private Map<UUID, Integer> getRecentPlaytimes() {
+        Map<UUID,Integer> localPlaytimeMap = new HashMap<>((playerJoins.size() * 4) / 3);
+
+        long currentTime = System.currentTimeMillis();
+
+        for (Map.Entry<UUID, OnlineTime> entry : playerJoins.entrySet()) {
+            localPlaytimeMap.put(entry.getKey(), entry.getValue().returnAndReset(currentTime));
         }
 
-        playerJoins.put(id, new OnlineTime());
+        return localPlaytimeMap;
+    }
 
+    // Called Sync
+    public void playerJoin(UUID id, String lastName) {
+        OnlineTime onlineTime = playerJoins.get(id);
+
+        if (onlineTime != null) {
+            PlaytimePro.debug(lastName + " logged in. OnlineTime already exists.");
+            onlineTime.login();
+        }
+        else {
+            onlineTime =  new OnlineTime();
+            playerJoins.put(id, onlineTime);
+            PlaytimePro.debug(lastName + " logged in. Created new online time. Requesting playtime from DB...");
+            fetchAllPlaytimes(id, lastName, onlineTime);
+        }
+    }
+
+    // Only called if online time is not already cached
+    private void fetchAllPlaytimes(final UUID player, final String lastName, final OnlineTime cache) {
+        Bukkit.getScheduler().runTaskAsynchronously(PlaytimePro.getInstance(),
+                () -> database.localFillTime(player, lastName, cache));
     }
 
     // Called Sync
     public void playerLeave(UUID id) {
-        if (playerJoins.containsKey(id)) playerJoins.get(id).handleLogout();
+        OnlineTime onlineTime = playerJoins.get(id);
+
+        if (onlineTime != null) {
+            PlaytimePro.debug("Marking logout for " + id);
+            onlineTime.handleLogout();
+        }
+        else {
+            PlaytimePro.debug("No cached time for logout of " + id);
+        }
     }
 
     public void closeDatabase() {
@@ -186,83 +184,97 @@ public class DataManager {
         }
     }
 
-    // Called Sync
-    public int getTime(UUID player, TimeType type) {
-        switch (type) {
-            case ALL_TIME:
-                return calculateSeconds(player)
-                        + timesAllTime.getOrDefault(player, 0);
-            case MONTHLY:
-                return calculateSeconds(player)
-                        + timesMonthly.getOrDefault(player, 0);
-            case WEEKLY:
-                return calculateSeconds(player)
-                        + timesWeekly.getOrDefault(player, 0);
-            default:
-                return 0;
+    // Must be called async. Returns error as -1
+    public int getOfflineTime(UUID player, TimeType type) {
+        try (Connection con = database.getConnection()) {
+            if (con == null)
+                return -1;
+
+            Statement stmt = con.createStatement();
+            return database.getTime(stmt, type, player);
+        } catch (SQLException ex) {
+            getLogger().log(Level.SEVERE, "SQL Exception!", ex);
+            return -1;
         }
     }
 
-    private int calculateSeconds(UUID player) {
+    // Called Sync
+    public int getOnlineTime(UUID player, TimeType type) {
         final OnlineTime ot = playerJoins.get(player);
 
-        if (ot == null) return 0;
+        if (ot == null)
+            return 0;
 
-        return (int) TimeUnit.MILLISECONDS.toSeconds(ot.getUnstoredPlaytime());
+        int localPlaytime = (int) TimeUnit.MILLISECONDS.toSeconds(ot.getOnlinePlaytime());
+
+        int playTime = 0;
+
+        if (type == TimeType.ALL_TIME)
+            playTime = ot.getAllTime();
+        else if (type == TimeType.MONTHLY)
+            playTime = ot.getMonthlyTime();
+        else if (type == TimeType.WEEKLY)
+            playTime = ot.getWeeklyTime();
+
+        PlaytimePro.debug("Online time requested for " + player + " of type " + type.name() +
+                ": " + (playTime + localPlaytime) + " seconds!");
+
+        return playTime + localPlaytime;
     }
 
     // Called Async
-    public void migrateOld(PlaytimePro plugin) {
+    public void migrateOld() {
+        PlaytimePro plugin = PlaytimePro.getInstance();
+
         File file = new File(plugin.getDataFolder(), "times.json");
 
         if (!file.exists()) {
-            plugin.getLogger().warning("Could not migrate from old data. times.json file not found.");
+            getLogger().warning("Could not migrate from old data. times.json file not found.");
             return;
         }
 
         try {
             Scanner scanner = new Scanner(file);
 
-            plugin.getLogger().info(Messages.getString("migration_loading_old"));
+            getLogger().info(Messages.getString("migration_loading_old"));
             Map<String, Double> stringMap = new Gson().fromJson(scanner.nextLine(), Map.class);
 
-            plugin.getLogger().info(Messages.getString("migration_mapping_players"));
+            getLogger().info(Messages.getString("migration_mapping_players"));
             Map<UUID, Integer> times = stringMap.entrySet().stream()
                     .map(e -> new SimpleEntry<>(UUID.fromString(e.getKey()), e.getValue().intValue()))
                     .collect(Collectors.toMap(SimpleEntry::getKey, SimpleEntry::getValue));
 
             plugin.stopRunnables();
 
-            plugin.getLogger().info(Messages.getString("migration_uploading_times"));
+            getLogger().info(Messages.getString("migration_uploading_times"));
             database.updateTimesMigration(TimeType.ALL_TIME, times);
 
-            plugin.getLogger().info(Messages.getString("migration_updating_names"));
+            getLogger().info(Messages.getString("migration_updating_names"));
 
             // Use Silverwolfg11's UUIDMap plugin (which is already used for TownyNameUpdater and XenLink) to get
             // the names from UUID from players who have already joined the server async.
             // We cannot use Bukkit.getOfflinePlayer because it is not thread safe!
-            if (PlaytimePro.getUUIDMapDependency() != null) {
-                PlaytimePro.getUUIDMapDependency().getNameFromUUID(times.keySet()).thenAcceptAsync(map -> {
+            if (PlaytimePro.getInstance().getUUIDMapDependency() != null) {
+                PlaytimePro.getInstance().getUUIDMapDependency().getNameFromUUID(times.keySet()).thenAcceptAsync(map -> {
                     if (!map.isEmpty())
                         database.updateNames(map);
                 });
             }
 
-            plugin.getLogger().info(Messages.getString("migration_completed"));
+            getLogger().info(Messages.getString("migration_completed"));
 
-            updateLocalStorage();
             plugin.registerRunnables();
 
             scanner.close();
         } catch (IOException e) {
-            plugin.getLogger().log(Level.WARNING, "Could not migrate from old data.", e);
+            getLogger().log(Level.WARNING, "Could not migrate from old data.", e);
         }
     }
 
     // Called Async
-    public void migrateToOther(PlaytimePro plugin) {
+    public void migrateToOther() {
         try {
-            SQLDatabase other = database instanceof MySQL ? new SQLite(plugin) : newMySQL(plugin);
+            SQLDatabase other = database instanceof MySQL ? new SQLite() : newMySQL();
 
             if (other == null)
                 return;
@@ -270,14 +282,22 @@ public class DataManager {
             if (other instanceof MySQL && !((MySQL) other).canConnect())
                 return;
 
-            other.updateTimes(TimeType.ALL_TIME, playerJoins, timesAllTime);
-            other.updateTimes(TimeType.MONTHLY, playerJoins, timesMonthly);
-            other.updateTimes(TimeType.WEEKLY, playerJoins, timesWeekly);
+            Map<UUID, Integer> allTime = new HashMap<>(),
+                               monthlyTime = new HashMap<>(),
+                               weeklyTime = new HashMap<>();
+
+            // Fill the maps with the data
+            database.fillTimesToMap(allTime, monthlyTime, weeklyTime);
+
+            // Migrate data to other database
+            other.updateTimesMigration(TimeType.ALL_TIME, allTime);
+            other.updateTimesMigration(TimeType.MONTHLY, monthlyTime);
+            other.updateTimesMigration(TimeType.WEEKLY, weeklyTime);
 
 
-            plugin.getLogger().info("Migration to other database completed.");
+            getLogger().info("Migration to other database completed.");
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "Could not migrate to new database");
+            getLogger().log(Level.WARNING, "Could not migrate to new database");
         }
     }
 
@@ -285,7 +305,11 @@ public class DataManager {
         return database.purge(time);
     }
 
-    private MySQL newMySQL(PlaytimePro plugin) {
+    public void purgeTable(TimeType type) {
+        database.purgeTable(type);
+    }
+
+    private MySQL newMySQL() {
         String host = ConfigManager.getMySQLHost();
         int port = ConfigManager.getMySQLPort();
         String databaseName = ConfigManager.getMySQLDatabase();
@@ -293,15 +317,11 @@ public class DataManager {
         String password = ConfigManager.getMySQLPassword();
 
         if (host == null || port == 0 || databaseName == null || username == null || password == null) {
-            plugin.getLogger().severe("Invalid MySQL database configuration! Check your config. Plugin disabling.");
+            getLogger().severe("Invalid MySQL database configuration! Check your config. Plugin disabling.");
             return null;
         }
 
-        return new MySQL(plugin, host, port, databaseName, username, password);
-    }
-
-    public void setLastName(UUID id, String name) {
-        database.setLastName(id, name);
+        return new MySQL(host, port, databaseName, username, password);
     }
 
     public List<SignHead> getHeads() {

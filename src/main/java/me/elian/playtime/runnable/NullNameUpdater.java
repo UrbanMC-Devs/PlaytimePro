@@ -8,8 +8,8 @@ public class NullNameUpdater extends BukkitRunnable {
 
     private static boolean running;
 
-    private NullNameUpdater(PlaytimePro plugin) {
-        runTaskTimerAsynchronously(plugin, 40, 11 * 60 * 20);
+    private NullNameUpdater() {
+        runTaskTimerAsynchronously(PlaytimePro.getInstance(), 40, 11 * 60 * 20);
         running = true;
     }
 
@@ -25,9 +25,9 @@ public class NullNameUpdater extends BukkitRunnable {
         }
     }
 
-    public static void runTask(PlaytimePro plugin) {
+    public static void runTask() {
         if (running) return;
 
-        new NullNameUpdater(plugin);
+        new NullNameUpdater();
     }
 }

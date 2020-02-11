@@ -5,38 +5,48 @@ import me.elian.playtime.listener.HeadListener;
 import me.elian.playtime.listener.JoinListener;
 import me.elian.playtime.manager.ConfigManager;
 import me.elian.playtime.manager.DataManager;
+import me.elian.playtime.manager.DateManager;
 import me.elian.playtime.runnable.DatabaseSaver;
 import me.elian.playtime.runnable.HeadUpdater;
-import me.elian.playtime.runnable.NullNameUpdater;
 import me.elian.playtime.runnable.TopListUpdater;
 import me.elian.playtime.util.UUIDMapDependency;
 import org.bukkit.Bukkit;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-
 public class PlaytimePro extends JavaPlugin {
 
     private BukkitRunnable topListUpdater, headUpdater, databaseSaver;
+    private UUIDMapDependency uuidMap;
+
     private static PlaytimePro instance;
-    private static UUIDMapDependency uuidMap;
+    public static PlaytimePro getInstance() {
+        return instance;
+    }
+
+    private static boolean debug = false;
 
     @Override
     public void onEnable() {
-        if (!DataManager.getInstance().registerDatabase(this)) {
+        instance = this;
+
+        ConfigManager.reload();
+
+        if (!DataManager.getInstance().registerDatabase()) {
             setEnabled(false);
             return;
         }
 
-        instance = this;
+        // Load date time
+        DateManager.getInstance().loadFromTextFile();
 
         registerSoftDependencies();
         registerRunnables();
         registerListeners();
         registerCommands();
+
+        // TODO Handle online players in case plugin was reloaded
     }
 
     @Override
@@ -90,7 +100,7 @@ public class PlaytimePro extends JavaPlugin {
         PluginManager pm = getServer().getPluginManager();
 
         pm.registerEvents(new HeadListener(), this);
-        pm.registerEvents(new JoinListener(this), this);
+        pm.registerEvents(new JoinListener(), this);
     }
 
     @SuppressWarnings ("ConstantConditions")
@@ -101,9 +111,10 @@ public class PlaytimePro extends JavaPlugin {
         getCommand("playtimemonthlytop").setExecutor(new MonthlyTop());
         getCommand("playtimeweekly").setExecutor(new Weekly());
         getCommand("playtimeweeklytop").setExecutor(new WeeklyTop());
-        getCommand("playtimemigrate").setExecutor(new Migrate(this));
-        getCommand("playtimepurge").setExecutor(new Purge(this));
-        getCommand("playtimereload").setExecutor(new Reload(this));
+        getCommand("playtimemigrate").setExecutor(new Migrate());
+        getCommand("playtimepurge").setExecutor(new Purge());
+        getCommand("playtimereload").setExecutor(new Reload());
+        getCommand("playtimedebug").setExecutor(new Debug());
     }
 
     private void registerSoftDependencies() {
@@ -115,11 +126,18 @@ public class PlaytimePro extends JavaPlugin {
         Bukkit.getScheduler().runTask(instance, run);
     }
 
-    public static void checkForNullName() {
-        NullNameUpdater.runTask(instance);
+    public UUIDMapDependency getUUIDMapDependency() {
+        return uuidMap;
     }
 
-    public static UUIDMapDependency getUUIDMapDependency() {
-        return uuidMap;
+    // Easy access debug methods
+    public static void debug(String message) {
+        if (debug)
+            instance.getLogger().info("Debug: " + message);
+    }
+
+    // Returns the new state of the debug boolean.
+    public static boolean toggleDebug() {
+        return (debug ^= true);
     }
 }

@@ -2,15 +2,10 @@ package me.elian.playtime.command;
 
 import me.elian.playtime.PlaytimePro;
 import me.elian.playtime.object.Command;
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 
 public class Purge extends Command {
-
-    private PlaytimePro plugin;
-
-    public Purge(PlaytimePro plugin) {
-        this.plugin = plugin;
-    }
 
     @Override
     public void onCommand(CommandSender sender, String label, String[] args) {
@@ -26,20 +21,11 @@ public class Purge extends Command {
             return;
         }
 
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+        Bukkit.getScheduler().runTaskAsynchronously(PlaytimePro.getInstance(), () -> {
             sendMessage(sender, "purge_start");
 
             int purged = getData().purge(time);
             sendMessage(sender, "purge_finish", purged);
         });
-    }
-
-    public boolean isInt(String number) {
-        try {
-            Integer.parseInt(number);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-        }
     }
 }

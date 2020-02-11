@@ -7,6 +7,8 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.UUID;
+
 public class Weekly extends Command {
 
     @Override
@@ -19,22 +21,36 @@ public class Weekly extends Command {
 
             Player p = (Player) sender;
 
-            int seconds = getData().getTime(p.getUniqueId(), TimeType.WEEKLY);
+            int seconds = getData().getOnlineTime(p.getUniqueId(), TimeType.WEEKLY);
             sendMessage(p, "weekly_self", formatTime(seconds));
         } else {
             OfflinePlayer p = Bukkit.getOfflinePlayer(args[0]);
 
-            int seconds = getData().getTime(p.getUniqueId(), TimeType.WEEKLY);
+            final UUID targetUUID = p.getUniqueId();
+            final UUID senderUUID = (sender instanceof Player) ? ((Player) sender).getUniqueId() : null;
 
-            if (seconds == 0) {
-                sendMessage(sender, "player_never_played_week");
-            } else {
-                if (sender instanceof Player && ((Player) sender).getUniqueId() == p.getUniqueId()) {
-                    sendMessage(sender, "weekly_self", formatTime(seconds));
-                } else {
-                    sendMessage(sender, "weekly_other", formatTime(seconds), p.getName());
-                }
+            // Check if sender is the target
+            if (senderUUID != null && targetUUID.equals(((Player) sender).getUniqueId())) {
+                Player player = (Player) sender;
+                int seconds = getData().getOnlineTime(player.getUniqueId(), TimeType.WEEKLY);
+                sendMessage(player, "weekly_self", formatTime(seconds));
+                return;
             }
+
+            final String targetName = p.getName();
+            sendMessage(sender, "playtime_fetch");
+
+            runTask(true, () -> {
+                final int seconds = getData().getOfflineTime(targetUUID, TimeType.WEEKLY);
+
+                runTask(false, () -> {
+                    if (seconds == -1) {
+                        sendMessage(senderUUID, "player_never_played_week");
+                    } else {
+                        sendMessage(senderUUID, "weekly_other", formatTime(seconds), targetName);
+                    }
+                });
+            });
         }
     }
 }

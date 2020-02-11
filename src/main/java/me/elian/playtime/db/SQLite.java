@@ -11,20 +11,20 @@ import java.util.logging.Level;
 
 public class SQLite extends SQLDatabase {
 
-    private PlaytimePro plugin;
     private final File file;
 
     private Connection con;
 
-    public SQLite(PlaytimePro plugin) {
-        this.plugin = plugin;
-        this.file = new File(plugin.getDataFolder(), "database.db");
-
-        createFile();
-        createTables();
+    public SQLite() {
+        this.file = new File(PlaytimePro.getInstance().getDataFolder(), "database.db");
     }
 
-    private void createFile() {
+    @Override
+    public boolean establishConnection() {
+        return createFile() && createTables();
+    }
+
+    private boolean createFile() {
         if (!file.getParentFile().isDirectory())
             file.getParentFile().mkdir();
 
@@ -32,9 +32,12 @@ public class SQLite extends SQLDatabase {
             try {
                 file.createNewFile();
             } catch (IOException e) {
-                plugin.getLogger().log(Level.SEVERE, "Could not create database file.", e);
+                PlaytimePro.getInstance().getLogger().log(Level.SEVERE, "Could not create database file.", e);
+                return false;
             }
         }
+
+        return true;
     }
 
     @Override
@@ -48,16 +51,16 @@ public class SQLite extends SQLDatabase {
 
             return con;
         } catch (SQLException ex) {
-            plugin.getLogger().log(Level.SEVERE, "SQLite exception on initialize", ex);
+            PlaytimePro.getInstance().getLogger().log(Level.SEVERE, "SQLite exception on initialize", ex);
         } catch (ClassNotFoundException ex) {
-            plugin.getLogger().log(Level.SEVERE, "You need the SQLite JBDC library. Google it. Put it in /lib folder.");
+            PlaytimePro.getInstance().getLogger().log(Level.SEVERE, "You need the SQLite JBDC library. Google it. Put it in /lib folder.");
         }
 
         return null;
     }
 
     @Override
-    public PlaytimePro getPlugin() {
-        return plugin;
+    public String getSimpleName() {
+        return "sqlite";
     }
 }

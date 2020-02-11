@@ -27,13 +27,4 @@ public class WeeklyTop extends Command {
             sendMessage(sender, "top_list_not_loaded");
         }
     }
-
-    private boolean isInt(String number) {
-        try {
-            Integer.parseInt(number);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-        }
-    }
 }

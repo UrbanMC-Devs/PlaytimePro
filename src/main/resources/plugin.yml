@@ -34,6 +34,9 @@ commands:
   playtimereload:
     permission: playtime.reload
     aliases: [ptreload]
+  playtimedebug:
+    permission: playtime.debug
+    aliases: [ptdebug]
 
 permissions:
   playtime.playtime:

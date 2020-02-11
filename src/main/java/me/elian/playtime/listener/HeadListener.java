@@ -33,7 +33,7 @@ public class HeadListener implements Listener {
 
         String top = e.getLine(0);
 
-        if (!top.startsWith("[") || !top.endsWith("]"))
+        if (top.length() == 0 || top.charAt(0) != '['  || top.charAt(top.length() - 1) != ']')
             return;
 
         top = removeOuterChars(top);
@@ -123,7 +123,7 @@ public class HeadListener implements Listener {
     }
 
     private String removeOuterChars(String str) {
-        return str.substring(1).substring(0, str.length() - 2);
+        return str.substring(1, str.length() - 2);
     }
 
     private int getFirstInt(String str) {

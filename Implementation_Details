@@ -1,0 +1,23 @@
+This plugin tries to incorporate more features while still being more efficient than the original playtime plugin.
+
+What are the new additions?
+Weekly and Monthly playtime!
+
+How/why is this plugin more efficient?
+We made this plugin more efficient by doing some things:
+- Not using a task to keep track of playtime
+- Not storing all the playtime in memory
+- Moving the IO off-thread
+
+So how did we accomplish those things?
+Let's walk through an overview of what happens when a player logs on to the server.
+Silverwolfg11 logs on to the server. The plugin checks if there is already an OnlineTime object
+allocated to silver. If there is, then we do not create a new one, and simply just update the login time for silver.
+If there is not an object allocated, then we create a new object (which marks the login time), add it to the
+concurrent hashmap of onlinetimes, and also request to get the playtime of silver from the database.
+
+A few minutes later, the plugin then loops through all the cached players, and updates the database with their playtimes,
+and resets their login times to the current times. The plugin then loops through all the online players and removes the caches
+of those who are not online anymore.
+
+When a player logoff, their login time is set to -1, but their tempstoredtime variable is updated.

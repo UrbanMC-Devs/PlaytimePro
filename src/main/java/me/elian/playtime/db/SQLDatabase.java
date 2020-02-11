@@ -5,9 +5,7 @@ import me.elian.playtime.object.OnlineTime;
 import me.elian.playtime.object.SignHead;
 import me.elian.playtime.object.TimeType;
 import me.elian.playtime.object.TopListItem;
-import me.elian.playtime.runnable.NullNameUpdater;
 import me.elian.playtime.util.NameUtil;
-import org.bukkit.Bukkit;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -15,30 +13,27 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.GregorianCalendar;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 
 public abstract class SQLDatabase {
 
+    public abstract String getSimpleName();
+
     public abstract Connection getConnection();
 
-    public abstract PlaytimePro getPlugin();
+    public abstract boolean establishConnection();
 
-    protected void createTables() {
+    protected boolean createTables() {
         try {
             Connection con = getConnection();
 
             if (con == null)
-                return;
+                return false;
 
             Statement statement = con.createStatement();
 
@@ -49,7 +44,112 @@ public abstract class SQLDatabase {
 
             statement.close();
         } catch (SQLException e) {
-            getPlugin().getLogger().log(Level.SEVERE, "Error creating tables", e);
+            PlaytimePro.getInstance().getLogger().log(Level.SEVERE, "Error creating tables", e);
+            return false;
+        }
+
+        return true;
+    }
+
+    public void localFillTime(UUID player, String lastName, OnlineTime onlineTime) {
+        // We are only going to fetch the playtime if it exists
+        // The creation and update will be when the times are saved
+
+        try {
+            Connection con = getConnection();
+
+            if (con == null)
+                return;
+
+            Statement statement = con.createStatement();
+
+            int allTime = 0;
+
+            ResultSet rs = statement.executeQuery(SQLMessages.get("select_all_time_player", player));
+
+            if (rs.next()) {
+                allTime = rs.getInt("time");
+            }
+
+            rs.close();
+
+            int monthlyTime = 0;
+            int weeklyTime = 0;
+
+            // If all time doesn't exist, no point in fetching the others because they sure don't exist...unless we broke
+            if (allTime != 0) {
+                // Fetch monthly time
+                rs = statement.executeQuery(SQLMessages.get("select_monthly_player", player));
+
+                if (rs.next()) {
+                    monthlyTime = rs.getInt("time");
+                }
+
+                rs.close();
+
+                // Fetch weekly time
+                rs = statement.executeQuery(SQLMessages.get("select_weekly_player", player));
+
+                if (rs.next()) {
+                    weeklyTime = rs.getInt("time");
+                }
+
+                rs.close();
+            }
+
+            statement.execute(SQLMessages.get("name_update", player, lastName));
+
+            PlaytimePro.debug("Fetched login playtime for " + lastName +
+                    ". Filling with " + allTime + " all time, " + monthlyTime + " monthly, " + weeklyTime + " weekly.");
+
+            onlineTime.addToAllTime(allTime);
+            onlineTime.addToMonthlyTime(monthlyTime);
+            onlineTime.addToWeeklyTime(weeklyTime);
+
+        } catch (SQLException ex) {
+            PlaytimePro.getInstance().getLogger().log(Level.SEVERE, "Error thrown while trying to fetch playtime for " + player, ex);
+        }
+    }
+
+    public int getTime(Statement statement, TimeType type, UUID playerUUID) throws SQLException {
+        String sqlQuery = "";
+
+        if (type == TimeType.ALL_TIME) {
+            sqlQuery = SQLMessages.get("select_all_time_player", playerUUID);
+        } else if (type == TimeType.MONTHLY) {
+            sqlQuery = SQLMessages.get("select_monthly_player", playerUUID);
+        } else if (type == TimeType.WEEKLY) {
+            sqlQuery = SQLMessages.get("select_weekly_player", playerUUID);
+        }
+
+        ResultSet rs = statement.executeQuery(sqlQuery);
+
+        int time = -1;
+
+        while (rs.next()) {
+            time = rs.getInt("time");
+        }
+
+        statement.close();
+
+        return time;
+    }
+
+    // Dump Method to dump all times onto one map.
+    public void fillTimesToMap(Map<UUID, Integer> allTimeMap, Map<UUID, Integer> monthlyTimeMap, Map<UUID, Integer> weeklyTimeMap) {
+        try {
+            Connection con = getConnection();
+
+            if (con == null)
+                return;
+
+            Statement stmt = con.createStatement();
+
+            getTimes(stmt, TimeType.ALL_TIME, allTimeMap);
+            getTimes(stmt, TimeType.MONTHLY, monthlyTimeMap);
+            getTimes(stmt, TimeType.WEEKLY, weeklyTimeMap);
+        } catch (SQLException ex) {
+            PlaytimePro.getInstance().getLogger().log(Level.SEVERE, "Error fetching times from database!", ex);
         }
     }
 
@@ -59,9 +159,9 @@ public abstract class SQLDatabase {
         if (type == TimeType.ALL_TIME) {
             sql = SQLMessages.get("select_all_time");
         } else if (type == TimeType.MONTHLY) {
-            sql = SQLMessages.get("select_monthly", getMonthString());
+            sql = SQLMessages.get("select_monthly");
         } else if (type == TimeType.WEEKLY) {
-            sql = SQLMessages.get("select_weekly", getWeekString());
+            sql = SQLMessages.get("select_weekly");
         }
 
         ResultSet rs = statement.executeQuery(sql);
@@ -69,7 +169,6 @@ public abstract class SQLDatabase {
         while (rs.next()) {
             UUID player = UUID.fromString(rs.getString("player"));
             int time = rs.getInt("time");
-
             timeMap.put(player, time);
         }
 
@@ -109,10 +208,8 @@ public abstract class SQLDatabase {
         }
     }
 
-    public synchronized void updateTimes(TimeType type, Map<UUID, OnlineTime> playerJoins, Map<UUID, Integer> oldTimes) {
-        String databaseType = this instanceof MySQL ? "mysql" : "sqlite";
-
-        if (playerJoins == null || playerJoins.isEmpty())
+    public synchronized void updateTimes(Map<UUID, Integer> cachedTimes) {
+        if(cachedTimes.isEmpty())
             return;
 
         try {
@@ -123,54 +220,39 @@ public abstract class SQLDatabase {
 
             con.setAutoCommit(false);
 
-            PreparedStatement statement;
+            // The SQL statements will update the time if the player exists or insert the time
 
-            if (type == TimeType.ALL_TIME) {
-                statement = con.prepareStatement(SQLMessages.get("prepared_insert_all_time_" + databaseType));
+            PreparedStatement allTimeUpdate = con.prepareStatement(SQLMessages.get("prepared_insert_all_time_" + getSimpleName())),
+                              monthlyUpdate = con.prepareStatement(SQLMessages.get("prepared_insert_monthly_" + getSimpleName())),
+                              weeklyUpdate =  con.prepareStatement(SQLMessages.get("prepared_insert_weekly_" + getSimpleName()));
 
-                for (Entry<UUID, OnlineTime> entry : playerJoins.entrySet()) {
-                    UUID id = entry.getKey();
-                    int seconds = calculateSeconds(entry.getValue()) + oldTimes.getOrDefault(id, 0);
 
-                    oldTimes.put(id, seconds); // Update times locally w/o having to wipe the entire map and fill it from the DB
+            for (Entry<UUID, Integer> timeEntry : cachedTimes.entrySet()) {
+                String playerUUID = timeEntry.getKey().toString();
+                // Insert Player UUIDs to statements
+                allTimeUpdate.setString(1, playerUUID);
+                monthlyUpdate.setString(1, playerUUID);
+                weeklyUpdate.setString(1, playerUUID);
 
-                    statement.setString(1, id.toString());
-                    statement.setInt(2, seconds);
+                int time = timeEntry.getValue();
+                // Insert time
+                allTimeUpdate.setInt(2, time);
+                allTimeUpdate.setInt(3, time);
+                monthlyUpdate.setInt(2, time);
+                monthlyUpdate.setInt(3, time);
+                weeklyUpdate.setInt(2, time);
+                weeklyUpdate.setInt(3, time);
 
-                    statement.setInt(3, seconds);
-
-                    statement.addBatch();
-                }
-            } else {
-                final String timeString;
-
-                if (type == TimeType.MONTHLY) {
-                    statement = con.prepareStatement(SQLMessages.get("prepared_insert_monthly_" + databaseType));
-                    timeString = getMonthString();
-                } else {
-                    statement = con.prepareStatement(SQLMessages.get("prepared_insert_weekly_" + databaseType));
-                    timeString = getWeekString();
-                }
-
-                for (Entry<UUID, OnlineTime> entry : playerJoins.entrySet()) {
-                    UUID id = entry.getKey();
-                    int seconds = calculateSeconds(entry.getValue()) + oldTimes.getOrDefault(id, 0);
-
-                    oldTimes.put(id, seconds); // Update times locally w/o having to wipe the entire map and fill it from the DB
-
-                    statement.setString(1, id.toString());
-                    statement.setInt(2, seconds);
-                    statement.setString(3, timeString);
-
-                    statement.setInt(4, seconds);
-                    statement.setString(5, timeString);
-
-                    statement.addBatch();
-                }
+                // Add to batch
+                allTimeUpdate.addBatch();
+                monthlyUpdate.addBatch();
+                weeklyUpdate.addBatch();
             }
 
-            statement.executeBatch();
-            statement.close();
+            // Execute batch
+            allTimeUpdate.executeBatch();
+            monthlyUpdate.executeBatch();
+            weeklyUpdate.executeBatch();
 
             con.commit();
             con.setAutoCommit(true);
@@ -196,6 +278,7 @@ public abstract class SQLDatabase {
             ResultSet rs = fetchStatement.executeQuery(SQLMessages.get("nullnames_get"));
 
             int resultSize = 0;
+            boolean hitRateLimit = false;
 
             while (rs.next()) {
                 resultSize++;
@@ -208,7 +291,7 @@ public abstract class SQLDatabase {
                     continue;
 
                 if (name.equals("_playtime_limit_reached_")) {
-                    resultSize = 600; // Fool the counter
+                    hitRateLimit = true;
                     break;
                 }
 
@@ -224,22 +307,16 @@ public abstract class SQLDatabase {
 
             fetchStatement.close();
 
-            Bukkit.getLogger().info("[PlaytimePro] Updating empty names took " + (System.currentTimeMillis() - startTime) + "ms! Updated " + resultSize +  " names!");
+            PlaytimePro.debug("Updating empty names took " + (System.currentTimeMillis() - startTime) + "ms! Updated " + resultSize +  " names!");
 
-            return resultSize == 600;
+            return hitRateLimit || resultSize == 600;
         } catch (SQLException ex) {
             ex.printStackTrace();
             return true;
         }
     }
 
-    private int calculateSeconds(OnlineTime time) {
-        return (int) TimeUnit.MILLISECONDS.toSeconds(time.getUnstoredPlaytime());
-    }
-
     public synchronized void updateTimesMigration(TimeType type, Map<UUID, Integer> times) {
-        String databaseType = this instanceof MySQL ? "mysql" : "sqlite";
-
         if (times == null || times.isEmpty())
             return;
 
@@ -254,7 +331,7 @@ public abstract class SQLDatabase {
             PreparedStatement statement;
 
             if (type == TimeType.ALL_TIME) {
-                statement = con.prepareStatement(SQLMessages.get("prepared_insert_all_time_" + databaseType));
+                statement = con.prepareStatement(SQLMessages.get("prepared_insert_all_time_" + getSimpleName()));
 
                 for (Entry<UUID, Integer> entry : times.entrySet()) {
                     statement.setString(1, entry.getKey().toString());
@@ -265,28 +342,22 @@ public abstract class SQLDatabase {
                     statement.addBatch();
                 }
             } else if (type == TimeType.MONTHLY) {
-                statement = con.prepareStatement(SQLMessages.get("prepared_insert_monthly_" + databaseType));
+                statement = con.prepareStatement(SQLMessages.get("prepared_insert_monthly_" + getSimpleName()));
 
                 for (Entry<UUID, Integer> entry : times.entrySet()) {
                     statement.setString(1, entry.getKey().toString());
                     statement.setInt(2, entry.getValue());
-                    statement.setString(3, getMonthString());
-
-                    statement.setInt(4, entry.getValue());
-                    statement.setString(5, getMonthString());
+                    statement.setInt(3, entry.getValue());
 
                     statement.addBatch();
                 }
             } else {
-                statement = con.prepareStatement(SQLMessages.get("prepared_insert_weekly_" + databaseType));
+                statement = con.prepareStatement(SQLMessages.get("prepared_insert_weekly_" + getSimpleName()));
 
                 for (Entry<UUID, Integer> entry : times.entrySet()) {
                     statement.setString(1, entry.getKey().toString());
                     statement.setInt(2, entry.getValue());
-                    statement.setString(3, getWeekString());
-
-                    statement.setInt(4, entry.getValue());
-                    statement.setString(5, getWeekString());
+                    statement.setInt(3, entry.getValue());
 
                     statement.addBatch();
                 }
@@ -309,9 +380,7 @@ public abstract class SQLDatabase {
             return;
 
         try {
-            final String databaseType = this instanceof MySQL ? "mysql" : "sqlite";
-
-            final PreparedStatement updateStatement = con.prepareStatement(SQLMessages.get("name_update_" + databaseType));
+            final PreparedStatement updateStatement = con.prepareStatement(SQLMessages.get("name_update_" + getSimpleName()));
 
             updateStatement.setString(1, id.toString());
             updateStatement.setString(2, name);
@@ -332,12 +401,10 @@ public abstract class SQLDatabase {
             return;
 
         try {
-            String databaseType = this instanceof MySQL ? "mysql" : "sqlite";
-
             con.setAutoCommit(false);
 
             PreparedStatement statement =
-                    con.prepareStatement(SQLMessages.get("prepared_insert_all_time_name_" + databaseType));
+                    con.prepareStatement(SQLMessages.get("prepared_insert_all_time_name_" + getSimpleName()));
 
             for (Entry<String, String> e : names.entrySet()) {
                 statement.setString(1, e.getKey());
@@ -357,6 +424,34 @@ public abstract class SQLDatabase {
         }
     }
 
+    public boolean purgeTable(TimeType type) {
+        try {
+            Connection con = getConnection();
+
+            if (con == null)
+                return false;
+
+            String key = null;
+
+            if (type == TimeType.ALL_TIME)
+                key = "full_purge_all_time";
+            else if (type == TimeType.MONTHLY)
+                key = "full_purge_monthly";
+            else if (type == TimeType.WEEKLY)
+                key = "full_purge_weekly";
+
+            Statement stmt = con.createStatement();
+
+            stmt.execute(SQLMessages.get(key));
+            stmt.close();
+
+            return true;
+        } catch (SQLException ex) {
+            PlaytimePro.getInstance().getLogger().log(Level.SEVERE, "Error purging table " + type.name(), ex);
+            return false;
+        }
+    }
+
     public int purge(int time) {
         try {
             Connection con = getConnection();
@@ -372,8 +467,6 @@ public abstract class SQLDatabase {
             int starting = rs.getInt(1);
 
             statement.execute(SQLMessages.get("purge_all_time", Integer.toString(time)));
-            statement.execute(SQLMessages.get("purge_monthly", getMonthString()));
-            statement.execute(SQLMessages.get("purge_weekly", getWeekString()));
 
             rs = statement.executeQuery(SQLMessages.get("count_all_time"));
 
@@ -387,20 +480,6 @@ public abstract class SQLDatabase {
             e.printStackTrace();
             return 0;
         }
-    }
-
-    public String getMonthString() {
-        GregorianCalendar cal = new GregorianCalendar();
-        cal.setTime(new Date());
-
-        return cal.get(Calendar.YEAR) + "-" + (cal.get(Calendar.MONTH) + 1);
-    }
-
-    public String getWeekString() {
-        GregorianCalendar cal = new GregorianCalendar();
-        cal.setTime(new Date());
-
-        return cal.get(Calendar.YEAR) + "-" + cal.get(Calendar.WEEK_OF_YEAR);
     }
 
     public List<SignHead> getHeads() {

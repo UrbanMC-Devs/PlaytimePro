@@ -1,48 +1,57 @@
 package me.elian.playtime.db;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import com.zaxxer.hikari.pool.HikariPool;
 import me.elian.playtime.PlaytimePro;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.logging.Level;
 
 public class MySQL extends SQLDatabase {
 
-    private PlaytimePro plugin;
-    private String host, database, user, pass;
-    private int port;
+    private String database;
 
-    private Connection con;
+    private HikariDataSource hikariDS;
 
-    public MySQL(PlaytimePro plugin, String host, int port, String database, String user, String pass) {
-        this.plugin = plugin;
-        this.host = host;
+    public MySQL(String host, int port, String database, String user, String pass) {
         this.database = database;
-        this.user = user;
-        this.pass = pass;
-        this.port = port;
 
-        createDatabase(database);
-        createTables();
+        HikariConfig hikariConfig = new HikariConfig();
+        hikariConfig.setPoolName("PlaytimeProPool");
+        hikariConfig.setUsername(user);
+        hikariConfig.setPassword(pass);
+        hikariConfig.setJdbcUrl("jdbc:mysql://" + host + ":" + port + "/" + database);
+
+        try {
+            hikariDS = new HikariDataSource(hikariConfig);
+        } catch (HikariPool.PoolInitializationException exception) {
+            PlaytimePro.getInstance().getLogger().severe("Error connecting to SQL Database. Please make sure everything is configured properly.");
+            hikariDS = null;
+        }
     }
 
-    private void createDatabase(String databaseName) {
-        try {
-            Class.forName("com.mysql.jdbc.Driver");
-            con = DriverManager.getConnection("jdbc:mysql://" + host + ":" + port + "/", user, pass);
+    @Override
+    public boolean establishConnection() {
+        return hikariDS != null && createDatabase(database) && createTables();
+    }
 
+    private boolean createDatabase(String databaseName) {
+        try (Connection con = getConnection()) {
             Statement statement = con.createStatement();
 
             String sql = "CREATE DATABASE IF NOT EXISTS " + databaseName;
             statement.execute(sql);
 
             statement.close();
-            con.close();
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Could not connect to MySQL database!" + databaseName, e);
+            PlaytimePro.getInstance().getLogger().log(Level.SEVERE, "Could not connect to MySQL database!" + databaseName, e);
+            return false;
         }
+
+        return true;
     }
 
     public boolean canConnect() {
@@ -52,24 +61,16 @@ public class MySQL extends SQLDatabase {
     @Override
     public Connection getConnection() {
         try {
-            if (con != null && !con.isClosed())
-                return con;
-
-            Class.forName("com.mysql.jdbc.Driver");
-            con = DriverManager.getConnection("jdbc:mysql://" + host + ":" + port + "/" + database, user, pass);
-
-            return con;
+            return hikariDS.getConnection();
         } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "Could not connect to MySQL database!", e);
-        } catch (ClassNotFoundException e) {
-            plugin.getLogger().log(Level.SEVERE, "You need the MySQL JBDC library. Google it. Put it in /lib folder.");
+            PlaytimePro.getInstance().getLogger().log(Level.SEVERE, "Could not connect to MySQL database!", e);
         }
 
         return null;
     }
 
     @Override
-    public PlaytimePro getPlugin() {
-        return plugin;
+    public String getSimpleName() {
+        return "mysql";
     }
 }

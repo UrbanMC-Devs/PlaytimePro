@@ -2,20 +2,10 @@ package me.elian.playtime.command;
 
 import me.elian.playtime.PlaytimePro;
 import me.elian.playtime.object.Command;
-import me.elian.playtime.object.TimeType;
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
 public class Migrate extends Command {
-
-    private PlaytimePro plugin;
-
-    public Migrate(PlaytimePro plugin) {
-        this.plugin = plugin;
-    }
 
     @Override
     public void onCommand(CommandSender sender, String label, String[] args) {
@@ -27,10 +17,12 @@ public class Migrate extends Command {
         String option = args[0];
 
         if (option.equalsIgnoreCase("old")) {
-            plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> getData().migrateOld(plugin));
+            Bukkit.getScheduler().runTaskAsynchronously(PlaytimePro.getInstance(),
+                    () -> getData().migrateOld());
             sendMessage(sender, "migration_started");
         } else if (option.equalsIgnoreCase("other")) {
-            plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> getData().migrateToOther(plugin));
+            Bukkit.getScheduler().runTaskAsynchronously(PlaytimePro.getInstance(),
+                    () -> getData().migrateToOther());
             sendMessage(sender, "migration_started");
         } else {
             sendMessage(sender, "migrate_info");
