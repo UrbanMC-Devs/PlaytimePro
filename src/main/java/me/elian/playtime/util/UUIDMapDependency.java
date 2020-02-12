@@ -10,7 +10,7 @@ import java.util.concurrent.CompletableFuture;
 
 public class UUIDMapDependency {
 
-    private UUIDMap uuidMap;
+    private final UUIDMap uuidMap;
 
     public UUIDMapDependency() {
         uuidMap = (UUIDMap) Bukkit.getPluginManager().getPlugin("UUIDMap");

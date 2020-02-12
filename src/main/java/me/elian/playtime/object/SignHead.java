@@ -6,9 +6,10 @@ import org.bukkit.World;
 
 public class SignHead {
 
-    private String location, headLocation;
-    private int position;
-    private TimeType type;
+    private final String location;
+    private final String headLocation;
+    private final int position;
+    private final TimeType type;
 
     public SignHead(String location, String headLocation, int position, TimeType type) {
         this.location = location;

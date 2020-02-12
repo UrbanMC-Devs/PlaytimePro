@@ -15,8 +15,8 @@ import java.util.List;
 
 public class HeadUtil {
 
-    private static DataManager data = DataManager.getInstance();
-    private static TopListManager topList = TopListManager.getInstance();
+    private static final DataManager data = DataManager.getInstance();
+    private static final TopListManager topList = TopListManager.getInstance();
 
     public static List<SignHead> getHeads() {
         return data.getHeads();

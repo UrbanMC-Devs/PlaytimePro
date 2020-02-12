@@ -12,7 +12,7 @@ import java.util.logging.Level;
 
 public class MySQL extends SQLDatabase {
 
-    private String database;
+    private final String database;
 
     private HikariDataSource hikariDS;
 

@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class TopListManager {
 
-    private static TopListManager instance = new TopListManager();
+    private static final TopListManager instance = new TopListManager();
 
     private List<TopListItem> timesConverted, monthlyTimesConverted, weeklyTimesConverted;
     private PaginalList<TopListItem> topList, monthlyTopList, weeklyTopList;

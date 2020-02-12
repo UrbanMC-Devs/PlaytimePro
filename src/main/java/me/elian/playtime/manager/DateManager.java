@@ -21,7 +21,7 @@ public class DateManager {
 
     private long lastCheckedTime = 0;
 
-    private static long HALF_HOUR_MILLIS =  1_800_000;
+    private static final long HALF_HOUR_MILLIS =  1_800_000;
 
     private DateManager() {}
 

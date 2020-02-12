@@ -122,10 +122,6 @@ public class PlaytimePro extends JavaPlugin {
             uuidMap = new UUIDMapDependency();
     }
 
-    public static void executeSync(Runnable run) {
-        Bukkit.getScheduler().runTask(instance, run);
-    }
-
     public UUIDMapDependency getUUIDMapDependency() {
         return uuidMap;
     }

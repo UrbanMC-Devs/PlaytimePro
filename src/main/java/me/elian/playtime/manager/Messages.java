@@ -4,6 +4,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.text.MessageFormat;
@@ -12,7 +13,7 @@ import java.util.ResourceBundle;
 
 public class Messages {
 
-    private static Messages instance = new Messages();
+    private static final Messages instance = new Messages();
 
     private final File FILE = new File("plugins/PlaytimePro", "messages.properties");
 
@@ -50,7 +51,7 @@ public class Messages {
     private void loadBundle() {
         try {
             InputStream input = new FileInputStream(FILE);
-            Reader reader = new InputStreamReader(input, "UTF-8");
+            Reader reader = new InputStreamReader(input, StandardCharsets.UTF_8);
 
             bundle = new PropertyResourceBundle(reader);
             reader.close();

@@ -55,9 +55,7 @@ public abstract class SQLDatabase {
         // We are only going to fetch the playtime if it exists
         // The creation and update will be when the times are saved
 
-        try {
-            Connection con = getConnection();
-
+        try (Connection con = getConnection()) {
             if (con == null)
                 return;
 
@@ -105,7 +103,6 @@ public abstract class SQLDatabase {
             onlineTime.addToAllTime(allTime);
             onlineTime.addToMonthlyTime(monthlyTime);
             onlineTime.addToWeeklyTime(weeklyTime);
-
         } catch (SQLException ex) {
             PlaytimePro.getInstance().getLogger().log(Level.SEVERE, "Error thrown while trying to fetch playtime for " + player, ex);
         }
@@ -137,9 +134,7 @@ public abstract class SQLDatabase {
 
     // Dump Method to dump all times onto one map.
     public void fillTimesToMap(Map<UUID, Integer> allTimeMap, Map<UUID, Integer> monthlyTimeMap, Map<UUID, Integer> weeklyTimeMap) {
-        try {
-            Connection con = getConnection();
-
+        try (Connection con = getConnection()) {
             if (con == null)
                 return;
 
@@ -176,10 +171,9 @@ public abstract class SQLDatabase {
     }
 
     public List<TopListItem> getSortedTimes(String table, int minTime, AtomicLong totalHours) {
-        try {
-            Connection con = getConnection();
-
-            if (con == null) return null;
+        try (Connection con = getConnection()) {
+            if (con == null)
+                return null;
 
             Statement statement = con.createStatement();
 
@@ -212,9 +206,7 @@ public abstract class SQLDatabase {
         if(cachedTimes.isEmpty())
             return;
 
-        try {
-            Connection con = getConnection();
-
+        try (Connection con = getConnection()) {
             if (con == null)
                 return;
 
@@ -264,14 +256,11 @@ public abstract class SQLDatabase {
     public boolean updateNullNames() {
         long startTime = System.currentTimeMillis(); // Time method
 
-        String databaseType = this instanceof MySQL ? "mysql" : "sqlite";
+        try (Connection con = getConnection()) {
+            if (con == null)
+                return true;
 
-        try {
-            Connection con = getConnection();
-
-            if (con == null) return true;
-
-            PreparedStatement updateStatement = con.prepareStatement(SQLMessages.get("name_update_" + databaseType));
+            PreparedStatement updateStatement = con.prepareStatement(SQLMessages.get("name_update_" + getSimpleName()));
 
             Statement fetchStatement = con.createStatement();
 
@@ -320,9 +309,7 @@ public abstract class SQLDatabase {
         if (times == null || times.isEmpty())
             return;
 
-        try {
-            Connection con = getConnection();
-
+        try (Connection con = getConnection()) {
             if (con == null)
                 return;
 
@@ -373,34 +360,11 @@ public abstract class SQLDatabase {
         }
     }
 
-    public void setLastName(UUID id, String name) {
-        Connection con = getConnection();
-
-        if (con == null)
-            return;
-
-        try {
-            final PreparedStatement updateStatement = con.prepareStatement(SQLMessages.get("name_update_" + getSimpleName()));
-
-            updateStatement.setString(1, id.toString());
-            updateStatement.setString(2, name);
-            updateStatement.setString(3, name);
-
-            updateStatement.execute();
-
-            updateStatement.close();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
     public synchronized void updateNames(Map<String, String> names) {
-        Connection con = getConnection();
+        try (Connection con = getConnection()) {
+            if (con == null)
+                return;
 
-        if (con == null)
-            return;
-
-        try {
             con.setAutoCommit(false);
 
             PreparedStatement statement =
@@ -425,9 +389,7 @@ public abstract class SQLDatabase {
     }
 
     public boolean purgeTable(TimeType type) {
-        try {
-            Connection con = getConnection();
-
+        try (Connection con = getConnection()) {
             if (con == null)
                 return false;
 
@@ -453,9 +415,7 @@ public abstract class SQLDatabase {
     }
 
     public int purge(int time) {
-        try {
-            Connection con = getConnection();
-
+        try (Connection con = getConnection()) {
             if (con == null)
                 return 0;
 
@@ -485,9 +445,7 @@ public abstract class SQLDatabase {
     public List<SignHead> getHeads() {
         List<SignHead> heads = new ArrayList<>();
 
-        try {
-            Connection con = getConnection();
-
+        try (Connection con = getConnection()) {
             if (con == null)
                 return heads;
 
@@ -516,9 +474,7 @@ public abstract class SQLDatabase {
     }
 
     public void addHead(SignHead head) {
-        try {
-            Connection con = getConnection();
-
+        try (Connection con = getConnection()) {
             if (con == null)
                 return;
 
@@ -535,9 +491,7 @@ public abstract class SQLDatabase {
     }
 
     public void removeHead(SignHead head) {
-        try {
-            Connection con = getConnection();
-
+        try (Connection con = getConnection()) {
             if (con == null)
                 return;
 

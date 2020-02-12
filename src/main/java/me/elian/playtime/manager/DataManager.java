@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 
 public class DataManager {
 
-    private static DataManager instance = new DataManager();
+    private static final DataManager instance = new DataManager();
 
     private SQLDatabase database;
 
@@ -42,7 +42,7 @@ public class DataManager {
      * this is updated each time the database is saved so that we can remove players who are no longer online
      * and save some memory
      */
-    private Map<UUID, OnlineTime> playerJoins;
+    private final Map<UUID, OnlineTime> playerJoins;
 
     public static DataManager getInstance() {
         return instance;

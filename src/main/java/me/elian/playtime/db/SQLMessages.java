@@ -1,13 +1,14 @@
 package me.elian.playtime.db;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
 import java.util.PropertyResourceBundle;
 import java.util.ResourceBundle;
 
 public class SQLMessages {
 
-    private static SQLMessages instance = new SQLMessages();
+    private static final SQLMessages instance = new SQLMessages();
 
     private ResourceBundle bundle;
 
@@ -18,7 +19,7 @@ public class SQLMessages {
     private void loadBundle() {
         try {
             InputStream input = getClass().getClassLoader().getResourceAsStream("sql.properties");
-            Reader reader = new InputStreamReader(input, "UTF-8");
+            Reader reader = new InputStreamReader(input, StandardCharsets.UTF_8);
 
             bundle = new PropertyResourceBundle(reader);
             reader.close();

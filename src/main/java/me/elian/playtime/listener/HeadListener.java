@@ -21,7 +21,7 @@ import org.bukkit.material.MaterialData;
 
 public class HeadListener implements Listener {
 
-    private DataManager data = DataManager.getInstance();
+    private final DataManager data = DataManager.getInstance();
 
     @EventHandler (priority = EventPriority.HIGH)
     public void onSignChange(SignChangeEvent e) {

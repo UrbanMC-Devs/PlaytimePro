@@ -8,7 +8,7 @@ import java.util.List;
 public class PaginalList<T> {
 
     private List<List<T>> partitions;
-    private int amountPerPage;
+    private final int amountPerPage;
 
     public PaginalList(List<T> list, int amountPerPage) {
         this.amountPerPage = amountPerPage;

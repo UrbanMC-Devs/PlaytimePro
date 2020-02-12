@@ -2,8 +2,8 @@ package me.elian.playtime.object;
 
 public class TopListItem {
 
-    private String name;
-    private int time;
+    private final String name;
+    private final int time;
 
     public TopListItem(String name, int time) {
         this.name = name;
