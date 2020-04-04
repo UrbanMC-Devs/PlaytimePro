@@ -32,23 +32,18 @@ public abstract class Command implements CommandExecutor {
         if (sender instanceof Player) {
             sender.sendMessage(message);
         } else {
+            // Check for null sender
+            if (sender == null)
+                sender = Bukkit.getConsoleSender();
+
             sender.sendMessage(ChatColor.stripColor(message));
         }
     }
 
     // Must be called sync
     protected void sendMessage(UUID sender, String property, Object... args) {
-        String message = Messages.getString(property, args);
-
-        if (sender == null) {
-            Bukkit.getConsoleSender().sendMessage(ChatColor.stripColor(message));
-        }
-        else {
-            Player p = Bukkit.getPlayer(sender);
-
-            if (p != null)
-                p.sendMessage(message);
-        }
+        CommandSender cmdSender = sender != null ? Bukkit.getPlayer(sender) : Bukkit.getConsoleSender();
+        sendMessage(cmdSender, property, args);
     }
 
     protected void runTask(boolean async, Runnable run) {

@@ -27,10 +27,10 @@ public class Weekly extends Command {
             OfflinePlayer p = Bukkit.getOfflinePlayer(args[0]);
 
             final UUID targetUUID = p.getUniqueId();
-            final UUID senderUUID = (sender instanceof Player) ? ((Player) sender).getUniqueId() : null;
+            final Player senderPlayer = (sender instanceof Player) ? ((Player) sender) : null;
 
             // Check if sender is the target
-            if (senderUUID != null && targetUUID.equals(((Player) sender).getUniqueId())) {
+            if (senderPlayer != null && targetUUID.equals(senderPlayer.getUniqueId())) {
                 Player player = (Player) sender;
                 int seconds = getData().getOnlineTime(player.getUniqueId(), TimeType.WEEKLY);
                 sendMessage(player, "weekly_self", formatTime(seconds));
@@ -49,13 +49,11 @@ public class Weekly extends Command {
             runTask(true, () -> {
                 final int seconds = getData().getOfflineTime(targetUUID, TimeType.WEEKLY);
 
-                runTask(false, () -> {
-                    if (seconds == -1) {
-                        sendMessage(senderUUID, "player_never_played_week");
-                    } else {
-                        sendMessage(senderUUID, "weekly_other", formatTime(seconds), targetName);
-                    }
-                });
+                if (seconds == -1) {
+                    sendMessage(senderPlayer, "player_never_played_week");
+                } else {
+                    sendMessage(senderPlayer, "weekly_other", formatTime(seconds), targetName);
+                }
             });
         }
     }
