@@ -37,6 +37,12 @@ public class Monthly extends Command {
                 return;
             }
 
+            if (p.isOnline()) {
+                int seconds = getData().getOnlineTime(p.getUniqueId(), TimeType.MONTHLY);
+                sendMessage(sender, "monthly_other", formatTime(seconds), p.getName());
+                return;
+            }
+
             final String targetName = p.getName();
             sendMessage(sender, "playtime_fetch");
 

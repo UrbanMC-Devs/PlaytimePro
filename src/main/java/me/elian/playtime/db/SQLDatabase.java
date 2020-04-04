@@ -28,6 +28,8 @@ public abstract class SQLDatabase {
 
     public abstract boolean establishConnection();
 
+    public void closeConnection() {}
+
     protected boolean createTables() {
         try {
             Connection con = getConnection();

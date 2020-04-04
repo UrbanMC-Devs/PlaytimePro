@@ -5,7 +5,6 @@ import me.elian.playtime.object.PaginalList;
 import me.elian.playtime.object.TimeType;
 import me.elian.playtime.object.TopListItem;
 import me.elian.playtime.runnable.NullNameUpdater;
-import org.bukkit.Bukkit;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +17,9 @@ public class TopListManager {
     private List<TopListItem> timesConverted, monthlyTimesConverted, weeklyTimesConverted;
     private PaginalList<TopListItem> topList, monthlyTopList, weeklyTopList;
 
-    private AtomicLong totalHoursOnServer, totalHoursMonth, totalHoursWeek;
+    private AtomicLong totalHoursOnServer = new AtomicLong(),
+                       totalHoursMonth = new AtomicLong(),
+                       totalHoursWeek = new AtomicLong();
 
     private TopListManager() {
     }
@@ -40,12 +41,12 @@ public class TopListManager {
     }
 
     // Silver - Run Async
-    public void updateTopListSorted() {
+    public synchronized void updateTopListSorted() {
         long startTime = System.currentTimeMillis(); // Start timing
 
-        totalHoursOnServer = new AtomicLong();
-        totalHoursMonth = new AtomicLong();
-        totalHoursWeek = new AtomicLong();
+        totalHoursOnServer.set(0);
+        totalHoursMonth.set(0);
+        totalHoursWeek.set(0);
 
         int minimum = ConfigManager.getTopMinimumHours();
 
@@ -60,11 +61,11 @@ public class TopListManager {
         weeklyTimes = getTimesSorted("weekly", 0, totalHoursWeek);
         weeklyTopList = new PaginalList<>(weeklyTimes, 10);
 
-        Bukkit.getScheduler().runTask(PlaytimePro.getInstance(), () -> {
-            timesConverted = allTimes;
-            monthlyTimesConverted = monthlyTimes;
-            weeklyTimesConverted = weeklyTimes;
-        });
+        // We just atomically assign the variables, no need for more concurrency handling
+        // Pretty sure this is fine since COW does it too
+        timesConverted = allTimes;
+        monthlyTimesConverted = monthlyTimes;
+        weeklyTimesConverted = weeklyTimes;
 
         NullNameUpdater.runTask();
 

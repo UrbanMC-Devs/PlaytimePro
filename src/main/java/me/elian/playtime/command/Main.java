@@ -40,7 +40,7 @@ public class Main extends Command {
             // Check if player is online. If so get online time.
             if (p.isOnline()) {
                 int seconds = getData().getOnlineTime(p.getUniqueId(), TimeType.ALL_TIME);
-                sendMessage(sender, "playtime_other", formatTime(seconds));
+                sendMessage(sender, "playtime_other", formatTime(seconds), p.getName());
                 return;
             }
 

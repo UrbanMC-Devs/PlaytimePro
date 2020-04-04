@@ -179,7 +179,7 @@ public class DataManager {
 
         try {
             saveStorageToDatabase();
-            database.getConnection().close();
+            database.closeConnection();
         } catch (Exception ignored) {
         }
     }

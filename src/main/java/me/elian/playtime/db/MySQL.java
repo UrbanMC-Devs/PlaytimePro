@@ -38,6 +38,12 @@ public class MySQL extends SQLDatabase {
         return hikariDS != null && createDatabase(database) && createTables();
     }
 
+    @Override
+    public void closeConnection() {
+        if (hikariDS != null)
+            hikariDS.close();
+    }
+
     private boolean createDatabase(String databaseName) {
         try (Connection con = getConnection()) {
             Statement statement = con.createStatement();
