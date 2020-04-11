@@ -279,7 +279,7 @@ public class DataManager {
             if (other == null)
                 return;
 
-            if (other instanceof MySQL && !((MySQL) other).canConnect())
+            if (other instanceof MySQL && !other.establishConnection())
                 return;
 
             Map<UUID, Integer> allTime = new HashMap<>(),
