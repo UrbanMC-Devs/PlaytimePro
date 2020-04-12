@@ -37,6 +37,9 @@ commands:
   playtimedebug:
     permission: playtime.debug
     aliases: [ptdebug]
+  playtimeset:
+    permission: playtime.set
+    aliases: [ptset]
 
 permissions:
   playtime.playtime:
@@ -62,4 +65,8 @@ permissions:
   playtime.heads.create:
     default: op
   playtime.heads.destroy:
+    default: op
+  playtime.debug:
+    default: op
+  playtime.set:
     default: op

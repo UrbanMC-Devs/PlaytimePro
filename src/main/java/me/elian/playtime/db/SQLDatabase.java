@@ -390,6 +390,32 @@ public abstract class SQLDatabase {
         }
     }
 
+    public synchronized void setTime(UUID uuid, TimeType type, int time) {
+        try (Connection con = getConnection()) {
+            if (con == null)
+                return;
+
+            String stmt = null;
+
+            if (type == TimeType.ALL_TIME)
+                stmt = "prepared_set_all";
+            else if (type == TimeType.MONTHLY)
+                stmt = "prepared_set_monthly";
+            else if (type == TimeType.WEEKLY)
+                stmt = "prepared_set_weekly";
+
+            try (PreparedStatement statement = con.prepareStatement(SQLMessages.get(stmt))) {
+
+                statement.setInt(1, time);
+                statement.setString(2, uuid.toString());
+
+                statement.executeUpdate();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
     public boolean purgeTable(TimeType type) {
         try (Connection con = getConnection()) {
             if (con == null)

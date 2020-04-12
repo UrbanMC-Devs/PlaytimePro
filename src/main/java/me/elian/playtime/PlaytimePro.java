@@ -45,8 +45,6 @@ public class PlaytimePro extends JavaPlugin {
         registerRunnables();
         registerListeners();
         registerCommands();
-
-        // TODO Handle online players in case plugin was reloaded
     }
 
     @Override
@@ -115,6 +113,7 @@ public class PlaytimePro extends JavaPlugin {
         getCommand("playtimepurge").setExecutor(new Purge());
         getCommand("playtimereload").setExecutor(new Reload());
         getCommand("playtimedebug").setExecutor(new Debug());
+        getCommand("playtimeset").setExecutor(new Set());
     }
 
     private void registerSoftDependencies() {

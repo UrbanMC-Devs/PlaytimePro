@@ -223,6 +223,32 @@ public class DataManager {
     }
 
     // Called Async
+    public void setTime(UUID player, TimeType type, int time) {
+        database.setTime(player, type, time);
+    }
+
+    // Called Sync
+    public void setTimeLocal(UUID player, TimeType type, int time) {
+        OnlineTime ot = playerJoins.get(player);
+
+        if (ot == null)
+            return;
+
+        if (type == TimeType.ALL_TIME) {
+            int previousTime = ot.getAllTime();
+            ot.addToAllTime(time - previousTime);
+        }
+        else if (type == TimeType.MONTHLY) {
+            int previousTime = ot.getMonthlyTime();
+            ot.addToWeeklyTime(time - previousTime);
+        }
+        else if (type == TimeType.WEEKLY) {
+            int previousTime = ot.getWeeklyTime();
+            ot.addToWeeklyTime(time - previousTime);
+        }
+    }
+
+    // Called Async
     public void migrateOld() {
         PlaytimePro plugin = PlaytimePro.getInstance();
 

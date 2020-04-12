@@ -6,7 +6,7 @@ public class OnlineTime {
 
     private long joinTime;
     private long tempStoredTime = -1; // This is the time stored when the database hasn't updated
-    private int allTime = 0,
+    private volatile int allTime = 0,
                 monthlyTime = 0,
                 weeklyTime = 0;
 
