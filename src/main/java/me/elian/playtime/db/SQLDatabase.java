@@ -102,9 +102,7 @@ public abstract class SQLDatabase {
             PlaytimePro.debug("Fetched login playtime for " + lastName +
                     ". Filling with " + allTime + " all time, " + monthlyTime + " monthly, " + weeklyTime + " weekly.");
 
-            onlineTime.addToAllTime(allTime);
-            onlineTime.addToMonthlyTime(monthlyTime);
-            onlineTime.addToWeeklyTime(weeklyTime);
+            onlineTime.addToCachedTime(allTime, monthlyTime, weeklyTime);
         } catch (SQLException ex) {
             PlaytimePro.getInstance().getLogger().log(Level.SEVERE, "Error thrown while trying to fetch playtime for " + player, ex);
         }

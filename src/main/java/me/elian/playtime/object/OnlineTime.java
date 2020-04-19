@@ -18,8 +18,10 @@ public class OnlineTime {
         joinTime = time;
     }
 
-    public void handleLogout() {
-        tempStoredTime += (System.currentTimeMillis() - joinTime);
+    public synchronized void handleLogout() {
+        long joinTimeCopy = joinTime;
+        joinTime = -1;
+        tempStoredTime += (System.currentTimeMillis() - joinTimeCopy);
     }
 
     public long getOnlinePlaytime() {
@@ -34,12 +36,12 @@ public class OnlineTime {
         return tempTime;
     }
 
-    public void login() {
+    public synchronized void login() {
         this.joinTime = System.currentTimeMillis();
     }
 
     // Returns cached playtime in seconds and resets the cache
-    public int returnAndReset(long currentTime) {
+    public synchronized int returnAndReset(long currentTime) {
         long tempTime = 0;
 
         if (joinTime != -1)
@@ -50,7 +52,7 @@ public class OnlineTime {
 
         int secondsTime = (int) TimeUnit.MILLISECONDS.toSeconds(tempTime);
 
-        updateLocalTime(secondsTime);
+        addToCachedTime(secondsTime, secondsTime, secondsTime);
 
         // Reset time
         joinTime = currentTime;
@@ -59,39 +61,27 @@ public class OnlineTime {
         return secondsTime;
     }
 
-    private void updateLocalTime(int addedSeconds) {
-        allTime += addedSeconds;
-        monthlyTime += addedSeconds;
-        weeklyTime += addedSeconds;
-    }
-
     // Instead of setters, these add to the time when the playtime is fetched to avoid dealing with concurrency issues
     // Since the value of the read doesn't actually matter, the operations do not need to be atomically in-order
 
-    public int getAllTime() {
-        return allTime;
+    public void addToCachedTime(int allTime, int monthlyTime, int weeklyTime) {
+        synchronized (this) {
+            this.allTime += allTime;
+            this.monthlyTime += monthlyTime;
+            this.weeklyTime += weeklyTime;
+        }
     }
 
-    public void addToAllTime(int seconds) {
-        allTime += seconds;
+    public int getAllTime() {
+        return allTime;
     }
 
     public int getMonthlyTime() {
         return monthlyTime;
     }
 
-    public void addToMonthlyTime(int seconds) {
-        this.monthlyTime += seconds;
-    }
-
     public int getWeeklyTime() {
         return weeklyTime;
     }
-
-    public void addToWeeklyTime(int seconds) {
-        this.weeklyTime += seconds;
-    }
-
-
 
 }

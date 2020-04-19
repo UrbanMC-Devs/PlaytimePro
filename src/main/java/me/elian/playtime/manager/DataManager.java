@@ -94,7 +94,7 @@ public class DataManager {
     }
 
     // Called Async/Sync
-    public void saveStorageToDatabase() {
+    public synchronized void saveStorageToDatabase() {
         long startTime = System.currentTimeMillis(); // Time saves
 
         DateManager.getInstance().updateTime();
@@ -231,21 +231,27 @@ public class DataManager {
     public void setTimeLocal(UUID player, TimeType type, int time) {
         OnlineTime ot = playerJoins.get(player);
 
+        int addedAllTime = 0,
+            addedMonthlyTime = 0,
+            addedWeeklyTime = 0;
+
         if (ot == null)
             return;
 
         if (type == TimeType.ALL_TIME) {
             int previousTime = ot.getAllTime();
-            ot.addToAllTime(time - previousTime);
+            addedAllTime = (time - previousTime);
         }
         else if (type == TimeType.MONTHLY) {
             int previousTime = ot.getMonthlyTime();
-            ot.addToWeeklyTime(time - previousTime);
+            addedMonthlyTime = (time - previousTime);
         }
         else if (type == TimeType.WEEKLY) {
             int previousTime = ot.getWeeklyTime();
-            ot.addToWeeklyTime(time - previousTime);
+            addedWeeklyTime = (time - previousTime);
         }
+
+        ot.addToCachedTime(addedAllTime, addedMonthlyTime, addedWeeklyTime);
     }
 
     // Called Async

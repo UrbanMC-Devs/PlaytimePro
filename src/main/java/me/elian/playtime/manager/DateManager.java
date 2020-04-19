@@ -62,16 +62,14 @@ public class DateManager {
         if (System.currentTimeMillis() - lastCheckedTime < HALF_HOUR_MILLIS)
             return;
 
-        boolean dirty = false;
+        boolean dirty;
 
-        if (updateWeek()) {
+        if ((dirty = updateWeek())) {
             DataManager.getInstance().purgeTable(TimeType.WEEKLY);
-            dirty = true;
         }
 
-        if (updateMonth()) {
+        if (updateMonth() && (dirty = true)) {
             DataManager.getInstance().purgeTable(TimeType.MONTHLY);
-            dirty = true;
         }
 
         if (dirty) {
