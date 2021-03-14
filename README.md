@@ -1,9 +1,9 @@
 # PlaytimePro
 A spigot plugin that keeps track of how long a player has played for. For each player, the plugin tracks the weekly playtime, the monthly playtime, and the total playtime of the player.
-The plugin also allows for player heads to be used as a visual leaderboard of playtime. All playtime data is stored in either a SQLite or mySQL database based on configuration. 
+The plugin also allows for player heads to be used as a visual leaderboard of playtime. All playtime data is stored in either a SQLite file or mySQL database based on configuration. 
 
 ## Installing
-The plugin can be installed from the releases page.
+The plugin can be installed from the [releases page](https://github.com/UrbanMC-Devs/PlaytimePro/releases/latest).
 
 ## Building 
 This project is a standard maven project and can be built via `mvn clean package`. 
