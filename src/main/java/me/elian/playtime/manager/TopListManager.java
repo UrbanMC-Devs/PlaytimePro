@@ -102,25 +102,28 @@ public class TopListManager {
         if (amountOfPages < pageNumber || pageNumber < 1)
             pageNumber = amountOfPages;
 
-        List<TopListItem> page = list.getPage(pageNumber);
-
         List<String> lines = new ArrayList<>();
 
         String topLine = Messages.getString("top_list_" + type.toString().toLowerCase() + "_top", pageNumber,
                 amountOfPages, totalHours.get());
         lines.add(topLine);
 
-        for (int i = 0; i < page.size(); i++) {
-            TopListItem listItem = page.get(i);
+        // On a fresh install, the top list will have 0 player entries and thus 0 pages.
+        if (pageNumber > 0) {
+            List<TopListItem> page = list.getPage(pageNumber);
 
-            String name = listItem.getName();
-            int hours = listItem.getTime();
+            for (int i = 0; i < page.size(); i++) {
+                TopListItem listItem = page.get(i);
 
-            int position = (i + 1 + pageNumber * 10) - 10;
+                String name = listItem.getName();
+                int hours = listItem.getTime();
 
-            String formatted = Messages.getString("top_list_" + type.toString().toLowerCase() + "_item", position,
-                    name, hours);
-            lines.add(formatted);
+                int position = (i + 1 + pageNumber * 10) - 10;
+
+                String formatted = Messages.getString("top_list_" + type.toString().toLowerCase() + "_item", position,
+                        name, hours);
+                lines.add(formatted);
+            }
         }
 
         return String.join("\n", lines);

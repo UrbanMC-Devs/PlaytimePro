@@ -227,6 +227,7 @@ public abstract class SQLDatabase {
                 weeklyUpdate.setString(1, playerUUID);
 
                 int time = timeEntry.getValue();
+                PlaytimePro.debug("Adding " + time + " to db for UUID " + playerUUID);
                 // Insert time
                 allTimeUpdate.setInt(2, time);
                 allTimeUpdate.setInt(3, time);
