@@ -25,6 +25,12 @@ commands:
   playtimeweeklytop:
     permission: playtime.weeklytop
     aliases: [ptweeklytop, ptwtop]
+  playtimeseason:
+    permission: playtime.season
+    aliases: [ ptseason, pts ]
+  playtimeseasontop:
+    permission: playtime.seasontop
+    aliases: [ ptseasontop, ptstop ]
   playtimemigrate:
     permission: playtime.migrate
     aliases: [ptmigrate]
@@ -53,6 +59,10 @@ permissions:
   playtime.weekly:
     default: true
   playtime.weeklytop:
+    default: true
+  playtime.season:
+    default: true
+  playtime.seasontop:
     default: true
   playtime.other:
     default: true

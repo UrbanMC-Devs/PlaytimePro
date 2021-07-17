@@ -109,6 +109,8 @@ public class PlaytimePro extends JavaPlugin {
         getCommand("playtimemonthlytop").setExecutor(new MonthlyTop());
         getCommand("playtimeweekly").setExecutor(new Weekly());
         getCommand("playtimeweeklytop").setExecutor(new WeeklyTop());
+        getCommand("playtimeseason").setExecutor(new Season());
+        getCommand("playtimeseasontop").setExecutor(new SeasonTop());
         getCommand("playtimemigrate").setExecutor(new Migrate());
         getCommand("playtimepurge").setExecutor(new Purge());
         getCommand("playtimereload").setExecutor(new Reload());

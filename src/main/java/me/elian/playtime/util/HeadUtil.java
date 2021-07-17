@@ -88,6 +88,9 @@ public class HeadUtil {
             case WEEKLY:
                 list = topList.getWeeklyTimesConverted();
                 break;
+            case SEASON:
+                list = topList.getSeasonTopConverted();
+                break;
         }
 
         if (list == null)

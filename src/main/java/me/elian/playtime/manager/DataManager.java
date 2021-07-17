@@ -101,6 +101,15 @@ public class DataManager {
 
         final Map<UUID, Integer> localPlaytimes = getRecentPlaytimes();
 
+        // Catch Time Jumps
+        for (Map.Entry<UUID, Integer> entry : localPlaytimes.entrySet()) {
+            long hours = TimeUnit.SECONDS.toHours(entry.getValue());
+            if (hours > 1000) {
+                PlaytimePro.getInstance().getLogger().severe("Error, time jump occurred for UUID: " +  entry.getKey() + ". Was about to add " + hours + " hours!");
+                entry.setValue(0);
+            }
+        }
+
         database.updateTimes(localPlaytimes);
 
         filterOfflinePlayers(localPlaytimes.keySet());
@@ -215,6 +224,8 @@ public class DataManager {
             playTime = ot.getMonthlyTime();
         else if (type == TimeType.WEEKLY)
             playTime = ot.getWeeklyTime();
+        else if (type == TimeType.SEASON)
+            playTime = ot.getSeasonTime();
 
         PlaytimePro.debug("Online time requested for " + player + " of type " + type.name() +
                 ": " + (playTime + localPlaytime) + " seconds!");
@@ -233,7 +244,8 @@ public class DataManager {
 
         int addedAllTime = 0,
             addedMonthlyTime = 0,
-            addedWeeklyTime = 0;
+            addedWeeklyTime = 0,
+            addedSeasonTime = 0;
 
         if (ot == null)
             return;
@@ -250,8 +262,12 @@ public class DataManager {
             int previousTime = ot.getWeeklyTime();
             addedWeeklyTime = (time - previousTime);
         }
+        else if (type == TimeType.SEASON) {
+            int previousTime = ot.getSeasonTime();
+            addedSeasonTime = (time - previousTime);
+        }
 
-        ot.addToCachedTime(addedAllTime, addedMonthlyTime, addedWeeklyTime);
+        ot.addToCachedTime(addedAllTime, addedMonthlyTime, addedWeeklyTime, addedSeasonTime);
     }
 
     // Called Async
@@ -316,15 +332,17 @@ public class DataManager {
 
             Map<UUID, Integer> allTime = new HashMap<>(),
                                monthlyTime = new HashMap<>(),
-                               weeklyTime = new HashMap<>();
+                               weeklyTime = new HashMap<>(),
+                               seasonTime = new HashMap<>();
 
             // Fill the maps with the data
-            database.fillTimesToMap(allTime, monthlyTime, weeklyTime);
+            database.fillTimesToMap(allTime, monthlyTime, weeklyTime, seasonTime);
 
             // Migrate data to other database
             other.updateTimesMigration(TimeType.ALL_TIME, allTime);
             other.updateTimesMigration(TimeType.MONTHLY, monthlyTime);
             other.updateTimesMigration(TimeType.WEEKLY, weeklyTime);
+            other.updateTimesMigration(TimeType.SEASON, seasonTime);
 
 
             getLogger().info("Migration to other database completed.");

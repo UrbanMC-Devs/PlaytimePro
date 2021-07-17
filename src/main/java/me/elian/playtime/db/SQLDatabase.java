@@ -43,6 +43,7 @@ public abstract class SQLDatabase {
             statement.execute(SQLMessages.get("create_table_monthly"));
             statement.execute(SQLMessages.get("create_table_weekly"));
             statement.execute(SQLMessages.get("create_table_heads"));
+            statement.execute(SQLMessages.get("create_table_season"));
 
             statement.close();
         } catch (SQLException e) {
@@ -75,6 +76,7 @@ public abstract class SQLDatabase {
 
             int monthlyTime = 0;
             int weeklyTime = 0;
+            int seasonTime = 0;
 
             // If all time doesn't exist, no point in fetching the others because they sure don't exist...unless we broke
             if (allTime != 0) {
@@ -95,6 +97,14 @@ public abstract class SQLDatabase {
                 }
 
                 rs.close();
+
+                rs = statement.executeQuery(SQLMessages.get("select_season_player", player));
+
+                if (rs.next()) {
+                    seasonTime = rs.getInt("time");
+                }
+
+                rs.close();
             }
 
             statement.execute(SQLMessages.get("name_update", player, lastName));
@@ -102,7 +112,7 @@ public abstract class SQLDatabase {
             PlaytimePro.debug("Fetched login playtime for " + lastName +
                     ". Filling with " + allTime + " all time, " + monthlyTime + " monthly, " + weeklyTime + " weekly.");
 
-            onlineTime.addToCachedTime(allTime, monthlyTime, weeklyTime);
+            onlineTime.addToCachedTime(allTime, monthlyTime, weeklyTime, seasonTime);
         } catch (SQLException ex) {
             PlaytimePro.getInstance().getLogger().log(Level.SEVERE, "Error thrown while trying to fetch playtime for " + player, ex);
         }
@@ -117,6 +127,8 @@ public abstract class SQLDatabase {
             sqlQuery = SQLMessages.get("select_monthly_player", playerUUID);
         } else if (type == TimeType.WEEKLY) {
             sqlQuery = SQLMessages.get("select_weekly_player", playerUUID);
+        }  else if (type == TimeType.SEASON) {
+            sqlQuery = SQLMessages.get("select_season_player", playerUUID);
         }
 
         ResultSet rs = statement.executeQuery(sqlQuery);
@@ -133,7 +145,8 @@ public abstract class SQLDatabase {
     }
 
     // Dump Method to dump all times onto one map.
-    public void fillTimesToMap(Map<UUID, Integer> allTimeMap, Map<UUID, Integer> monthlyTimeMap, Map<UUID, Integer> weeklyTimeMap) {
+    public void fillTimesToMap(Map<UUID, Integer> allTimeMap, Map<UUID, Integer> monthlyTimeMap,
+                               Map<UUID, Integer> weeklyTimeMap, Map<UUID, Integer> seasonTimeMap) {
         try (Connection con = getConnection()) {
             if (con == null)
                 return;
@@ -143,6 +156,7 @@ public abstract class SQLDatabase {
             getTimes(stmt, TimeType.ALL_TIME, allTimeMap);
             getTimes(stmt, TimeType.MONTHLY, monthlyTimeMap);
             getTimes(stmt, TimeType.WEEKLY, weeklyTimeMap);
+            getTimes(stmt, TimeType.SEASON, seasonTimeMap);
         } catch (SQLException ex) {
             PlaytimePro.getInstance().getLogger().log(Level.SEVERE, "Error fetching times from database!", ex);
         }
@@ -157,6 +171,9 @@ public abstract class SQLDatabase {
             sql = SQLMessages.get("select_monthly");
         } else if (type == TimeType.WEEKLY) {
             sql = SQLMessages.get("select_weekly");
+        }
+        else if (type == TimeType.SEASON) {
+            sql = SQLMessages.get("select_season");
         }
 
         ResultSet rs = statement.executeQuery(sql);
@@ -216,7 +233,8 @@ public abstract class SQLDatabase {
 
             PreparedStatement allTimeUpdate = con.prepareStatement(SQLMessages.get("prepared_insert_all_time_" + getSimpleName())),
                               monthlyUpdate = con.prepareStatement(SQLMessages.get("prepared_insert_monthly_" + getSimpleName())),
-                              weeklyUpdate =  con.prepareStatement(SQLMessages.get("prepared_insert_weekly_" + getSimpleName()));
+                              weeklyUpdate =  con.prepareStatement(SQLMessages.get("prepared_insert_weekly_" + getSimpleName())),
+                              seasonUpdate =  con.prepareStatement(SQLMessages.get("prepared_insert_weekly_" + getSimpleName()));
 
 
             for (Entry<UUID, Integer> timeEntry : cachedTimes.entrySet()) {
@@ -225,21 +243,28 @@ public abstract class SQLDatabase {
                 allTimeUpdate.setString(1, playerUUID);
                 monthlyUpdate.setString(1, playerUUID);
                 weeklyUpdate.setString(1, playerUUID);
+                seasonUpdate.setString(1, playerUUID);
 
                 int time = timeEntry.getValue();
                 PlaytimePro.debug("Adding " + time + " to db for UUID " + playerUUID);
                 // Insert time
                 allTimeUpdate.setInt(2, time);
                 allTimeUpdate.setInt(3, time);
+
                 monthlyUpdate.setInt(2, time);
                 monthlyUpdate.setInt(3, time);
+
                 weeklyUpdate.setInt(2, time);
                 weeklyUpdate.setInt(3, time);
+
+                seasonUpdate.setInt(2, time);
+                seasonUpdate.setInt(3, time);
 
                 // Add to batch
                 allTimeUpdate.addBatch();
                 monthlyUpdate.addBatch();
                 weeklyUpdate.addBatch();
+                seasonUpdate.addBatch();
             }
 
             // Execute batch
@@ -339,7 +364,18 @@ public abstract class SQLDatabase {
 
                     statement.addBatch();
                 }
-            } else {
+            } else if (type == TimeType.SEASON) {
+                statement = con.prepareStatement(SQLMessages.get("prepared_insert_season_" + getSimpleName()));
+
+                for (Entry<UUID, Integer> entry : times.entrySet()) {
+                    statement.setString(1, entry.getKey().toString());
+                    statement.setInt(2, entry.getValue());
+                    statement.setInt(3, entry.getValue());
+
+                    statement.addBatch();
+                }
+            }
+            else {
                 statement = con.prepareStatement(SQLMessages.get("prepared_insert_weekly_" + getSimpleName()));
 
                 for (Entry<UUID, Integer> entry : times.entrySet()) {
@@ -402,6 +438,8 @@ public abstract class SQLDatabase {
                 stmt = "prepared_set_monthly";
             else if (type == TimeType.WEEKLY)
                 stmt = "prepared_set_weekly";
+            else if (type == TimeType.SEASON)
+                stmt = "prepared_set_season";
 
             try (PreparedStatement statement = con.prepareStatement(SQLMessages.get(stmt))) {
 
@@ -428,6 +466,8 @@ public abstract class SQLDatabase {
                 key = "full_purge_monthly";
             else if (type == TimeType.WEEKLY)
                 key = "full_purge_weekly";
+            else if (type == TimeType.SEASON)
+                key = "full_purge_season";
 
             Statement stmt = con.createStatement();
 

@@ -25,7 +25,7 @@ public class PaginalList<T> {
         Validate.isTrue(pageNumber > 0, "Page number must be greater than 0");
 
         if (partitions.size() < pageNumber)
-            throw new IllegalArgumentException("Page number cannot be greater than partition size");
+            throw new IllegalArgumentException(String.format("Page number cannot be greater than partition size. Page Number: %d. Partitions: %d", pageNumber, partitions.size()));
 
         return partitions.get(--pageNumber);
     }

@@ -14,12 +14,13 @@ public class TopListManager {
 
     private static final TopListManager instance = new TopListManager();
 
-    private List<TopListItem> timesConverted, monthlyTimesConverted, weeklyTimesConverted;
-    private PaginalList<TopListItem> topList, monthlyTopList, weeklyTopList;
+    private List<TopListItem> timesConverted, monthlyTimesConverted, weeklyTimesConverted, seasonTopConverted;
+    private PaginalList<TopListItem> topList, monthlyTopList, weeklyTopList, seasonTopList;
 
     private AtomicLong totalHoursOnServer = new AtomicLong(),
                        totalHoursMonth = new AtomicLong(),
-                       totalHoursWeek = new AtomicLong();
+                       totalHoursWeek = new AtomicLong(),
+                       totalHoursSeason = new AtomicLong();
 
     private TopListManager() {
     }
@@ -40,6 +41,10 @@ public class TopListManager {
         return weeklyTimesConverted;
     }
 
+    public List<TopListItem> getSeasonTopConverted() {
+        return seasonTopConverted;
+    }
+
     // Silver - Run Async
     public synchronized void updateTopListSorted() {
         long startTime = System.currentTimeMillis(); // Start timing
@@ -47,10 +52,11 @@ public class TopListManager {
         totalHoursOnServer.set(0);
         totalHoursMonth.set(0);
         totalHoursWeek.set(0);
+        totalHoursSeason.set(0);
 
         int minimum = ConfigManager.getTopMinimumHours();
 
-        final List<TopListItem> allTimes, monthlyTimes, weeklyTimes;
+        final List<TopListItem> allTimes, monthlyTimes, weeklyTimes, seasonTimes;
 
         allTimes = getTimesSorted("all_time", minimum, totalHoursOnServer);
         topList = new PaginalList<>(allTimes, 10);
@@ -61,11 +67,15 @@ public class TopListManager {
         weeklyTimes = getTimesSorted("weekly", 0, totalHoursWeek);
         weeklyTopList = new PaginalList<>(weeklyTimes, 10);
 
+        seasonTimes = getTimesSorted("season", 0, totalHoursSeason);
+        seasonTopList = new PaginalList<>(seasonTimes, 10);
+
         // We just atomically assign the variables, no need for more concurrency handling
         // Pretty sure this is fine since COW does it too
         timesConverted = allTimes;
         monthlyTimesConverted = monthlyTimes;
         weeklyTimesConverted = weeklyTimes;
+        seasonTopConverted = seasonTimes;
 
         NullNameUpdater.runTask();
 
@@ -95,6 +105,10 @@ public class TopListManager {
                 list = weeklyTopList;
                 totalHours = totalHoursWeek;
                 break;
+            case SEASON:
+                list = seasonTopList;
+                totalHours = totalHoursSeason;
+                break;
         }
 
         int amountOfPages = topList.getAmountOfPages();
@@ -109,7 +123,7 @@ public class TopListManager {
         lines.add(topLine);
 
         // On a fresh install, the top list will have 0 player entries and thus 0 pages.
-        if (pageNumber > 0) {
+        if (amountOfPages > 0 && pageNumber > 0) {
             List<TopListItem> page = list.getPage(pageNumber);
 
             for (int i = 0; i < page.size(); i++) {
