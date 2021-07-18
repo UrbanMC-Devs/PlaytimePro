@@ -171,8 +171,7 @@ public abstract class SQLDatabase {
             sql = SQLMessages.get("select_monthly");
         } else if (type == TimeType.WEEKLY) {
             sql = SQLMessages.get("select_weekly");
-        }
-        else if (type == TimeType.SEASON) {
+        } else if (type == TimeType.SEASON) {
             sql = SQLMessages.get("select_season");
         }
 
@@ -234,7 +233,7 @@ public abstract class SQLDatabase {
             PreparedStatement allTimeUpdate = con.prepareStatement(SQLMessages.get("prepared_insert_all_time_" + getSimpleName())),
                               monthlyUpdate = con.prepareStatement(SQLMessages.get("prepared_insert_monthly_" + getSimpleName())),
                               weeklyUpdate =  con.prepareStatement(SQLMessages.get("prepared_insert_weekly_" + getSimpleName())),
-                              seasonUpdate =  con.prepareStatement(SQLMessages.get("prepared_insert_weekly_" + getSimpleName()));
+                              seasonUpdate =  con.prepareStatement(SQLMessages.get("prepared_insert_season_" + getSimpleName()));
 
 
             for (Entry<UUID, Integer> timeEntry : cachedTimes.entrySet()) {
@@ -271,6 +270,7 @@ public abstract class SQLDatabase {
             allTimeUpdate.executeBatch();
             monthlyUpdate.executeBatch();
             weeklyUpdate.executeBatch();
+            seasonUpdate.executeBatch();
 
             con.commit();
             con.setAutoCommit(true);
