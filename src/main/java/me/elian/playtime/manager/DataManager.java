@@ -101,15 +101,6 @@ public class DataManager {
 
         final Map<UUID, Integer> localPlaytimes = getRecentPlaytimes();
 
-        // Catch Time Jumps
-        for (Map.Entry<UUID, Integer> entry : localPlaytimes.entrySet()) {
-            long hours = TimeUnit.SECONDS.toHours(entry.getValue());
-            if (hours > 1000) {
-                PlaytimePro.getInstance().getLogger().severe("Error, time jump occurred for UUID: " +  entry.getKey() + ". Was about to add " + hours + " hours!");
-                entry.setValue(0);
-            }
-        }
-
         database.updateTimes(localPlaytimes);
 
         filterOfflinePlayers(localPlaytimes.keySet());
@@ -141,7 +132,14 @@ public class DataManager {
         long currentTime = System.currentTimeMillis();
 
         for (Map.Entry<UUID, OnlineTime> entry : playerJoins.entrySet()) {
-            localPlaytimeMap.put(entry.getKey(), entry.getValue().returnAndReset(currentTime));
+            int playedTime = entry.getValue().returnAndReset(currentTime);
+            // Catch TimeJumps
+            long hours = TimeUnit.SECONDS.toHours(playedTime);
+            if (hours > 1000) {
+                PlaytimePro.getInstance().getLogger().severe("Error, time jump occurred for UUID: " +  entry.getKey() + ". Was about to add " + hours + " hours!");
+                playedTime = 0;
+            }
+            localPlaytimeMap.put(entry.getKey(), playedTime);
         }
 
         return localPlaytimeMap;

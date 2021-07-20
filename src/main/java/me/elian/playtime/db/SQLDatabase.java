@@ -110,7 +110,7 @@ public abstract class SQLDatabase {
             statement.execute(SQLMessages.get("name_update", player, lastName));
 
             PlaytimePro.debug("Fetched login playtime for " + lastName +
-                    ". Filling with " + allTime + " all time, " + monthlyTime + " monthly, " + weeklyTime + " weekly.");
+                    ". Filling with " + allTime + "secs all time, " + monthlyTime + "secs monthly, " + weeklyTime + "secs weekly.");
 
             onlineTime.addToCachedTime(allTime, monthlyTime, weeklyTime, seasonTime);
         } catch (SQLException ex) {
@@ -245,7 +245,7 @@ public abstract class SQLDatabase {
                 seasonUpdate.setString(1, playerUUID);
 
                 int time = timeEntry.getValue();
-                PlaytimePro.debug("Adding " + time + " to db for UUID " + playerUUID);
+                PlaytimePro.debug("Adding " + time + " secs to db for UUID " + playerUUID);
                 // Insert time
                 allTimeUpdate.setInt(2, time);
                 allTimeUpdate.setInt(3, time);

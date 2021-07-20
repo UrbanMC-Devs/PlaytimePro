@@ -7,6 +7,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 
+import java.util.UUID;
+
 public class Set extends Command {
 
     @Override
@@ -20,19 +22,17 @@ public class Set extends Command {
 
         TimeType timeType;
 
-        switch (args[1].toLowerCase()) {
-            case "all":
-                timeType = TimeType.ALL_TIME;
-                break;
-            case "monthly":
-                timeType = TimeType.MONTHLY;
-                break;
-            case "weekly":
-                timeType = TimeType.WEEKLY;
-                break;
-            default:
+        final String timeTypeInput = args[1].toLowerCase();
+
+        if (timeTypeInput.equals("all"))
+            timeType = TimeType.ALL_TIME;
+        else {
+            try {
+                timeType = TimeType.valueOf(timeTypeInput.toUpperCase());
+            } catch (IllegalArgumentException ex) {
                 sender.sendMessage(Messages.getString("cmd.set.invalid-type"));
                 return;
+            }
         }
 
         int time = parseTime(args[2]);
@@ -42,8 +42,9 @@ public class Set extends Command {
             return;
         }
 
-        getData().setTimeLocal(target.getUniqueId(), timeType, time);
-        runTask(true, () -> getData().setTime(target.getUniqueId(), timeType, time));
+        final UUID targetUUID = target.getUniqueId();
+        getData().setTimeLocal(targetUUID, timeType, time);
+        runTask(true, () -> getData().setTime(targetUUID, timeType, time));
         sender.sendMessage(Messages.getString("cmd.set.time-set", args[0], time));
     }
 
@@ -56,7 +57,7 @@ public class Set extends Command {
         for (char c : arg.toCharArray()) {
             currentIndex++; // Sets to current index
 
-            double multiplier; // In seconds
+            int multiplier; // In seconds
             switch (c) {
                 case 'y': // Year
                     multiplier = 365 * 24 * 60 * 60;
@@ -87,7 +88,7 @@ public class Set extends Command {
             if (tempString.isEmpty()) continue;
 
             try {
-                time += Double.parseDouble(tempString) * multiplier;
+                time += Integer.parseInt(tempString) * multiplier;
             } catch (NumberFormatException ignore) {
             }
         }
