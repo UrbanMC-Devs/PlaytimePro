@@ -426,20 +426,12 @@ public abstract class SQLDatabase {
     }
 
     public synchronized void setTime(UUID uuid, TimeType type, int time) {
+        String stmt = null;
         try (Connection con = getConnection()) {
             if (con == null)
                 return;
 
-            String stmt = null;
-
-            if (type == TimeType.ALL_TIME)
-                stmt = "prepared_set_all";
-            else if (type == TimeType.MONTHLY)
-                stmt = "prepared_set_monthly";
-            else if (type == TimeType.WEEKLY)
-                stmt = "prepared_set_weekly";
-            else if (type == TimeType.SEASON)
-                stmt = "prepared_set_season";
+            stmt = "prepared_set_" + type.name().toLowerCase();
 
             try (PreparedStatement statement = con.prepareStatement(SQLMessages.get(stmt))) {
 
@@ -449,7 +441,11 @@ public abstract class SQLDatabase {
                 statement.executeUpdate();
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            String errorMsg = String.format("Error setting %s (%d secs) for player '%s'!", type.name(), time, uuid.toString());
+            if (stmt != null) {
+                errorMsg += " SQL Statement Executed: \"" + SQLMessages.get(stmt) + "\".";
+            }
+            PlaytimePro.getInstance().getLogger().log(Level.SEVERE, errorMsg, e);
         }
     }
 
