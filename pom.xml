@@ -6,7 +6,7 @@
 
     <groupId>me.elian</groupId>
     <artifactId>PlaytimePro</artifactId>
-    <version>1.5</version>
+    <version>1.51</version>
 
     <repositories>
         <repository>

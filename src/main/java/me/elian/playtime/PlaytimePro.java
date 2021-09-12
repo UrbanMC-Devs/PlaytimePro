@@ -92,6 +92,8 @@ public class PlaytimePro extends JavaPlugin {
         if (databaseSaver != null && !databaseSaver.isCancelled()) {
             databaseSaver.cancel();
         }
+        // Just for good measure
+        Bukkit.getScheduler().cancelTasks(this);
     }
 
     private void registerListeners() {
